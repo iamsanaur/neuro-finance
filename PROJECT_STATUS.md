@@ -1,12 +1,40 @@
 # Project Status
 
-Last updated: 2026-08-31 (Milestone 10)
+Last updated: 2026-08-31 (Milestone 11)
 
 ## Current milestone
 
-**Milestone 10: fix exp-0001's under-training, re-run as exp-0002 — DONE**
+**Milestone 11: capacity-matched MLP baseline + multi-split evaluation (exp-0003) — DONE**
 
-## exp-0002 result: once both models actually learn, the graph model underperforms the flat baseline
+## exp-0003 result: with capacity controlled for, the graph model underperforms a plain MLP, across 4 splits
+
+Added `MlpBaseline` (one hidden layer, no graph, `hidden_dim=116` chosen so
+`param_count(4, 116, 3) == 931`, an exact match to `neuro_model`'s ~931
+parameters at this configuration — verified numerically via
+`MlpBaseline::param_count`, not eyeballed). Extended the synthetic run to
+1100 days to get **4** non-overlapping walk-forward splits, and evaluated
+every model on all 4 (`exp-0002` had only used the first).
+
+**Mean test accuracy across 4 splits: `naive_persistence` 0.9625,
+`mlp_baseline` 0.3950, `logistic_regression` 0.3775, `neuro_model` 0.3550,
+`majority_class` 0.1325.** `neuro_model` was worst-or-tied-worst of the
+three trained models in 3 of 4 splits. This directly answers `exp-0002`'s
+open question: the gap wasn't just "more capacity overfits" — a
+**same-capacity flat MLP does better, not worse**, than `neuro_model`
+here, which points at the graph/topology machinery specifically (not raw
+parameter count) as the source of the underperformance in this setup.
+Full writeup, including everything this does and doesn't establish (one
+seed's market history across 4 splits, not yet independent
+re-generations; no temporal component in the model yet, which the report
+flags as a plausible reason a same-day topology snapshot underdelivers):
+`experiments/exp-0003-capacity-matched-multi-split/RESEARCH_REPORT.md`.
+
+This is now the most specific and most informative result the project has
+produced: **no evidence of benefit, and some evidence of harm, from
+dynamic topology on this synthetic setup** — reported plainly, per the
+project's own rule against manufacturing positive results.
+
+## Prior: exp-0002 (superseded by exp-0003, kept for the record)
 
 Added `feature_engine::Standardizer` (z-score, fit on train window only —
 point-in-time-safe by construction) and re-ran with 60 epochs at lr=0.02
@@ -413,6 +441,20 @@ Nothing beyond that scope until V0.1 is scientifically validated.
     `evaluation` per the crate's Milestone-1 description; adding them to
     `training-engine` would be scope creep this crate doesn't need.
 
+### Milestone 11 additions
+
+- **`evaluation::MlpBaseline`**: one hidden layer, no graph, exposes
+  `param_count(feature_dim, hidden_dim, num_classes)` so a
+  capacity-matched comparison can be verified numerically rather than
+  eyeballed. Deliberately built to isolate "extra capacity overfits" from
+  "the graph/topology mechanism specifically overfits" — the open question
+  `exp-0002` left behind.
+- **`examples/third_experiment.rs`** (`exp-0003`): evaluates all four
+  trained/fit models (`neuro_model`, `mlp_baseline`, `logistic_regression`,
+  `naive_persistence`, `majority_class`) across every walk-forward split
+  from a longer (1100-day) synthetic run, not just the first split. See
+  the result above.
+
 ### Milestone 10 additions
 
 - **`feature_engine::Standardizer`**: z-score standardization, `fit` on
@@ -451,20 +493,20 @@ Nothing beyond that scope until V0.1 is scientifically validated.
 
 ```
 cargo build --workspace     → success, 18 crates compiled
-cargo test --workspace      → 146 passed, 0 failed, 1 ignored (documented)
+cargo test --workspace      → 148 passed, 0 failed, 1 ignored (documented)
                                (18 financial-types, 15 data-engine,
                                 35 feature-engine, 13 financial-graph,
                                 2 tensor-engine, 22 topology-engine,
                                 9 neuro-model, 21 training-engine,
-                                10 evaluation, 1 cli)
-cargo clippy --workspace --all-targets → no issues found (incl. examples)
+                                12 evaluation, 1 cli)
+cargo clippy --workspace --all-targets → no issues found (incl. all 3 examples)
 cargo fmt --all -- --check  → clean
 cargo run -p cli -- --config configs/default.toml
   → Loaded config from configs/default.toml: 100 assets across 10 sectors,
     sequence_length=30, topology_top_k=8
-cargo run --release --example second_experiment -p evaluation
-  → see experiments/exp-0002-normalized-longer-training/ for full output
-    (exp-0001 kept for the record; superseded by exp-0002's result)
+cargo run --release --example third_experiment -p evaluation
+  → see experiments/exp-0003-capacity-matched-multi-split/ for full output
+    (exp-0001, exp-0002 kept for the record; superseded by exp-0003)
 ```
 
 ## Known issues / risks
@@ -486,19 +528,21 @@ cargo run --release --example second_experiment -p evaluation
 
 ## Next milestone
 
-**Milestone 11: a capacity-matched MLP baseline, then multiple splits/seeds**
-— `exp-0002`'s own conclusion identifies the next concrete step: build an
-MLP baseline with a parameter budget comparable to `neuro_model` (same
-rough capacity, no graph/topology) to separate "extra capacity overfits"
-from "the topology mechanism specifically overfits." Belongs in
-`evaluation` alongside the existing baselines. After that: re-run across
-several walk-forward splits and seeds (not just the first split) before
-treating any accuracy gap as more than anecdotal — `WalkForwardValidator`
-already supports this (`.splits()` returns every split, `exp-0002` only
-used `splits[0]`), so this is mostly a driver-script change, not new
-infrastructure.
+**Milestone 12: independent-seed replication, then decide on V0.1's
+scientific conclusion.** `exp-0003`'s splits are 4 windows of *one*
+generated market history, not independent re-generations — the natural
+next check is re-running the same comparison across a handful of different
+`SyntheticMarketConfig` seeds, to see whether "MLP/logistic beat
+neuro_model" holds up as a seed-independent pattern or was itself an
+artifact of this one market path. If it holds across seeds, V0.1's honest
+conclusion (per §54) is that this project's own evidence argues against
+its central hypothesis on same-day classification with no temporal
+component — worth writing up as the actual V0.1 research report (§55) at
+that point, rather than continuing to add architecture before the
+existing evidence is taken seriously. A temporal component (§21) is the
+most plausible remaining lever (per `exp-0003`'s own discussion) if the
+project continues past that point.
 
 Still open: the Milestone 6 Burn RNG-determinism caveat
 (`RAYON_NUM_THREADS=1` needed for exact weight-init reproducibility) — not
-yet resolved, still just documented; matters more now that real experiment
-comparisons are underway.
+yet resolved, still just documented.

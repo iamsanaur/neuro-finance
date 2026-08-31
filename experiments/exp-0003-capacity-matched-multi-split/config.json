@@ -1,0 +1,39 @@
+{
+  "based_on": "exp-0002-normalized-longer-training",
+  "changes_from_exp_0002": [
+    "added MlpBaseline, capacity-matched to neuro_model (931 params each)",
+    "evaluated across all walk-forward splits, not just the first",
+    "num_days 900 -> 1100 (to fit multiple splits)"
+  ],
+  "experiment_id": "exp-0003-capacity-matched-multi-split",
+  "market": {
+    "num_assets": 30,
+    "num_days": 1100,
+    "seed": 42
+  },
+  "mlp_baseline": {
+    "hidden_dim": 116,
+    "param_count": 931
+  },
+  "model": {
+    "embed_dim": 16,
+    "feature_dim": 4,
+    "param_count": 931,
+    "top_k": 5,
+    "topology_proj_dim": 8
+  },
+  "training": {
+    "batch_size": 8,
+    "epochs": 60,
+    "learning_rate": 0.02,
+    "optimizer": "Adam"
+  },
+  "walk_forward": {
+    "embargo_days": 5,
+    "mode": "Expanding",
+    "num_splits": 4,
+    "test_days": 100,
+    "train_days": 500,
+    "validation_days": 100
+  }
+}
