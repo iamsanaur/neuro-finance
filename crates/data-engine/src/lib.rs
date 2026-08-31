@@ -1,7 +1,11 @@
 //! data-engine
 //!
-//! Data provider traits (market/fundamental/macro/news) and synthetic market generator. CSV/Parquet/synthetic first; live providers are adapters.
+//! Data provider traits (market/fundamental/macro/news) and the synthetic
+//! market generator. CSV/Parquet/synthetic first; live providers are
+//! adapters (project spec §7).
 //!
-//! Status: scaffolded (Cargo workspace skeleton). Not yet implemented.
-//! See /PROJECT_STATUS.md for the current milestone and docs/architecture.md
-//! for how this crate fits into the overall system.
+//! Status: synthetic market generator implemented (`synthetic` module).
+//! Provider traits (`MarketDataProvider`, etc.) and CSV/Parquet adapters are
+//! not yet implemented — see /PROJECT_STATUS.md.
+
+pub mod synthetic;

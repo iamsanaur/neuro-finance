@@ -1,10 +1,10 @@
 # Project Status
 
-Last updated: 2026-08-31 (Milestone 2)
+Last updated: 2026-08-31 (Milestone 3)
 
 ## Current milestone
 
-**Milestone 2: `financial-types` — strongly typed, point-in-time data structures — DONE**
+**Milestone 3: synthetic market generator (`data-engine`) — DONE**
 
 ## Scope reminder
 
@@ -81,11 +81,63 @@ Nothing beyond that scope until V0.1 is scientifically validated.
     `as_of_excludes_records_available_after_query_time` — a record observed
     long ago but published late must not appear in an early `as_of` query.
 
+### Milestone 3 additions
+
+- **Synthetic market generator implemented** (`data-engine::synthetic`,
+  project spec §10): 100 assets / 10 sectors by default, configurable via
+  `SyntheticMarketConfig`. Generative model (documented in full in
+  `generator.rs`'s module doc, since "no hidden data transformations" is a
+  hard requirement):
+  - A shared market factor following a real **GARCH(1,1)** process (mean-
+    reverting to a regime-scaled long-run variance) — produces genuine
+    **volatility clustering**, verified by a positive lag-1 autocorrelation
+    test on squared market-wide returns.
+  - Per-sector factors pulled toward the market factor by a regime-dependent
+    **contagion loading** — small in `RiskOn`/`Neutral`, large in `RiskOff`
+    — the explicit mechanism for **cross-sector contagion**.
+  - A **hot-sector factor**, active only for one sector per regime (sector 0
+    in `RiskOn`, sector 1 in `RiskOff`, none in `Neutral`) — the mechanism
+    for **regime-specific topology** (§10's "tech strongly connected in one
+    regime, financials in another").
+  - A 3-state Markov regime chain (`RiskOn` / `Neutral` / `RiskOff`) with
+    configurable persistence — these three states double as the ground-truth
+    label for the eventual regime-classification task (§25), so the
+    synthetic data already targets the right label space.
+  - Occasional regime-independent sector shocks, and lognormal-noised
+    volume that scales with `|return|`.
+  - A macro "realized volatility" series published with a **nonzero
+    publication lag** (configurable, default 1 day) — gives the
+    point-in-time machinery from Milestone 2 a real lagged series to guard,
+    not just a contrived test fixture.
+- **The generator's core claim is empirically tested, not assumed** (§10:
+  "This is a scientific validation step."): with a same-regime control
+  sector as baseline (isolating the hot-sector-specific effect from generic
+  regime-wide contagion), sector 0's pairwise correlation is verified to
+  exceed the control sector's specifically during `RiskOn`, sector 1's
+  specifically during `RiskOff`, and cross-sector correlation is verified to
+  rise in `RiskOff` vs. `Neutral`. A first version of this test compared
+  sector 0 across regimes directly and failed — `RiskOff` contagion turned
+  out to raise correlation *everywhere*, including in sector 0, more than
+  `RiskOn`'s isolated hot-factor effect did. That's a real, intentional
+  property of the generator (crises make everything correlated), not a bug;
+  the test was corrected to control for it rather than the generator being
+  weakened to pass a flawed test.
+- Every generated `MarketBar` passes `MarketBar::validate()` (checked in a
+  dedicated test); generation is verified deterministic given a seed, and
+  verified to differ given a different seed.
+- Not yet implemented in `data-engine`: `MarketDataProvider` /
+  `FundamentalDataProvider` / `MacroDataProvider` / `NewsDataProvider`
+  traits (§7), CSV/Parquet adapters. The synthetic generator produces
+  in-memory `financial-types` structs directly; nothing is persisted to
+  `data/raw` or `data/processed` yet — that lands with the provider trait
+  layer.
+
 ## Verification (cumulative, latest milestone)
 
 ```
 cargo build --workspace     → success, 18 crates compiled
-cargo test --workspace      → 19 passed, 0 failed (18 in financial-types + 1 in cli)
+cargo test --workspace      → 34 passed, 0 failed
+                               (18 financial-types, 15 data-engine, 1 cli)
 cargo clippy --workspace --all-targets → no issues found
 cargo fmt --all -- --check  → clean
 cargo run -p cli -- --config configs/default.toml
@@ -112,11 +164,9 @@ cargo run -p cli -- --config configs/default.toml
 
 ## Next milestone
 
-**Milestone 3: synthetic market generator** (`data-engine`, project spec
-§10): 100 assets, 10 sectors, 3–5 market regimes, correlated assets with
-time-varying correlation, volatility clustering, macro factors, sector
-shocks, cross-sector contagion — with a *known* hidden topology (e.g. tech
-assets tightly connected in one regime, financials in another) so later
-milestones can test whether the topology-learning components actually
-recover it. This is the first genuinely research-bearing component, not just
-scaffolding.
+**Milestone 4: `feature-engine`** (project spec §11) — causal, point-in-time-
+safe features on top of the synthetic bars: log returns, rolling returns,
+volatility, momentum, moving averages, drawdown, rolling correlation,
+liquidity. Every rolling operation must explicitly declare window,
+alignment, and minimum observations, with no centered windows and no future
+values — with leakage tests proving it (§30).

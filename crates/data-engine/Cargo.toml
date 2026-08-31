@@ -8,3 +8,9 @@ publish.workspace = true
 description = "Data provider traits (market/fundamental/macro/news) and synthetic market generator. CSV/Parquet/synthetic first; live providers are adapters."
 
 [dependencies]
+financial-types = { workspace = true }
+chrono = { workspace = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true }
+rand_distr = { workspace = true }
+thiserror = { workspace = true }
