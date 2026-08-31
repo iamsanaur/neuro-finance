@@ -8,3 +8,12 @@ publish.workspace = true
 description = "Sparse multi-relational financial graph: nodes, edges, relation types (sector/industry/correlation/fundamental/macro/news/learned)."
 
 [dependencies]
+financial-types = { workspace = true }
+feature-engine = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+data-engine = { workspace = true }
+chrono = { workspace = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true }

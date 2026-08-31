@@ -41,7 +41,14 @@ pub fn rolling_correlation(
         .collect()
 }
 
-fn pearson(a: &[f64], b: &[f64]) -> f64 {
+/// The underlying Pearson correlation computation `rolling_correlation`
+/// windows over. Exposed directly (not just through the rolling wrapper) for
+/// callers that already have a single window of data in hand and want to
+/// avoid `rolling_correlation`'s O(n) computation over every trailing index
+/// when only the last one is needed — e.g. `financial-graph`'s correlation
+/// graph builder, which only ever wants "the" correlation as of one point in
+/// time, not a full rolling series.
+pub fn pearson(a: &[f64], b: &[f64]) -> f64 {
     let mean_a = mean(a);
     let mean_b = mean(b);
     let cov: f64 = a

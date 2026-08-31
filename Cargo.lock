@@ -209,6 +209,15 @@ dependencies = [
 [[package]]
 name = "financial-graph"
 version = "0.1.0"
+dependencies = [
+ "chrono",
+ "data-engine",
+ "feature-engine",
+ "financial-types",
+ "rand",
+ "rand_chacha",
+ "thiserror",
+]
 
 [[package]]
 name = "financial-types"

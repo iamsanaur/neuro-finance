@@ -1,10 +1,22 @@
 # Project Status
 
-Last updated: 2026-08-31 (Milestone 4)
+Last updated: 2026-08-31 (Milestone 5)
 
 ## Current milestone
 
-**Milestone 4: `feature-engine` — causal, point-in-time-safe features — DONE**
+**Milestone 5: `financial-graph` — sparse graph, sector + correlation builders — DONE**
+
+## Decision: real data source
+
+User asked about pulling data from Yahoo Finance. Agreed sequencing:
+finish V0.1 on synthetic data first (so the pipeline is validated against
+known ground truth end to end), then add a Yahoo Finance
+`MarketDataProvider` adapter as the **first step of V0.2** (§51). Also noted
+for that future step: Yahoo covers price/volume well but not
+fundamentals/macro with proper point-in-time revision history — FRED/ALFRED
+(free, revision-vintage-aware) is the better source for the macro/fundamental
+providers V0.2 also calls for. Not acted on yet — flagged here so it isn't
+lost before V0.2 starts.
 
 ## Scope reminder
 
@@ -159,13 +171,47 @@ Nothing beyond that scope until V0.1 is scientifically validated.
     changes, yield curve slope — there is no data source for any of these
     yet, so stub functions would be untestable.
 
+### Milestone 5 additions
+
+- **`financial-graph` implemented** (project spec §12–§14):
+  - `FinancialGraph`: sparse storage only — a flat edge `Vec` plus per-node
+    adjacency lists of edge indices, no `N x N` matrix anywhere in the type
+    (§13). Undirected (every V0.1 relation is symmetric); `add_edge`
+    rejects out-of-range nodes and self-loops.
+  - `RelationType` enum has all 7 variants from §12 (`Sector`, `Industry`,
+    `Correlation`, `Fundamental`, `Macro`, `News`, `Learned`) even though
+    V0.1 only produces `Sector`/`Correlation` — so downstream crates
+    (`topology-engine`, `neuro-model`) can be written against the full
+    relation space without a breaking change later.
+  - Node identity is `EntityId` (not `Symbol`) — matches `financial-types`'
+    own doc for `EntityId` as the general graph-node identity; `Symbol` ->
+    `EntityId` conversion happens at each builder's boundary.
+  - `build_sector_graph`: asset-asset edges between every pair sharing a
+    sector, grouped by sector first (not an all-pairs scan) to stay
+    `O(n * avg_sector_size)`.
+  - `build_correlation_graph`: edges weighted by pairwise rolling return
+    correlation (via `feature-engine::correlation::pearson`, newly exposed
+    for this), thresholded by `min_abs_correlation` to stay sparse (an
+    unthresholded correlation graph is close to complete). **Point-in-time
+    safety is the caller's responsibility by contract** — the function
+    trusts whatever `bars` it's given; a test
+    (`correlation_graph_does_not_use_future_bars`) demonstrates the actual
+    leak that results from passing unfiltered bars, and confirms correct
+    usage (`PointInTimeDataset::as_of` truncation first) is deterministic —
+    the concrete form of §30's "future graph edges" leakage test.
+  - Not yet implemented: industry/fundamental/macro/news graphs (V0.2+, no
+    data source yet); per-relation learnable importance (`alpha_k`, §15)
+    and the dynamic/learned topology itself (§16) — those belong to
+    `topology-engine`, not this crate.
+
 ## Verification (cumulative, latest milestone)
 
 ```
 cargo build --workspace     → success, 18 crates compiled
-cargo test --workspace      → 68 passed, 0 failed
+cargo test --workspace      → 81 passed, 0 failed
                                (18 financial-types, 15 data-engine,
-                                33 feature-engine, 1 cli, 1 doctest)
+                                33 feature-engine, 13 financial-graph,
+                                1 cli, 1 doctest)
 cargo clippy --workspace --all-targets → no issues found
 cargo fmt --all -- --check  → clean
 cargo run -p cli -- --config configs/default.toml
@@ -192,10 +238,12 @@ cargo run -p cli -- --config configs/default.toml
 
 ## Next milestone
 
-**Milestone 5: `financial-graph`** (project spec §12–§15) — the
-`FinancialGraph` type (nodes, edges, relation types), sparse adjacency
-storage (not dense N×N), and the first two static graphs: a sector graph
-(from the synthetic universe's sector assignment) and a correlation graph
-(from `feature-engine`'s `rolling_correlation`, computed point-in-time-safe
-as of each day). This is what the topology learner (Milestone 7+) will
-eventually be compared against as a baseline.
+**Milestone 6: `topology-engine`** (project spec §16–§18) — the dynamic
+topology learner: sparse top-k attention-scored adjacency
+(`s_ij = Q_i^T K_j / sqrt(d)`, configurable `k` in {4,8,16,32}), EMA
+persistence across time (`A_t = lambda*A_{t-1} + (1-lambda)*A_new`), and the
+sparsity/stability/relation regularization losses. This is the first crate
+that needs an actual tensor backend, so it's also where the Burn decision
+from Milestone 1 gets its first real check (add the dependency, benchmark
+`ndarray` vs `wgpu` on real top-k attention, confirm or revise the
+`docs/environment.md` decision).
