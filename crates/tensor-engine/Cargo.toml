@@ -8,3 +8,4 @@ publish.workspace = true
 description = "Thin internal interface over the chosen ML tensor backend (Burn), isolating the rest of the workspace from backend choice."
 
 [dependencies]
+burn = { workspace = true }

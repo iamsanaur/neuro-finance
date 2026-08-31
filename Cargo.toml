@@ -24,7 +24,10 @@ members = [
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.75"
+# Bumped from 1.75 (Milestone 1's baseline) once Burn (Milestone 6) needed
+# a newer MSRV than that; this always trails the toolchain actually
+# installed (see docs/environment.md), never leads it.
+rust-version = "1.92"
 license = "UNLICENSED"
 repository = "local"
 publish = false
@@ -52,6 +55,13 @@ clap = { version = "4", features = ["derive"] }
 
 # Configuration
 toml = "0.8"
+
+# Tensor backend (see docs/environment.md's Milestone 1 decision): Burn,
+# ndarray (CPU) backend by default. autodiff is enabled now, ahead of
+# training-engine actually needing it, since wrapping/unwrapping a backend
+# in Autodiff<...> later would be a breaking type change for every crate
+# that touched a Tensor<B, _> in the meantime.
+burn = { version = "0.21", default-features = false, features = ["ndarray", "autodiff"] }
 
 # Numerics
 ndarray = { version = "0.16", features = ["serde"] }

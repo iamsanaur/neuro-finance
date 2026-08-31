@@ -65,3 +65,27 @@ interface (per §5) so the rest of the workspace never imports `burn` directly.
 Every "run tests" / "run benchmark" step in this project's workflow must
 export `PATH="$HOME/.cargo/bin:$PATH"` (or the shell must be fixed) before
 invoking `cargo`.
+
+## Backend decision in practice (Milestone 6 update)
+
+Burn was added as an actual dependency for the first time in `tensor-engine`
+(Milestone 6). Two things learned that weren't visible from the plan alone:
+
+- The workspace's declared `rust-version` (originally `1.75`, set in
+  Milestone 1 before any dependency needed a newer one) silently capped
+  Cargo's dependency resolution to an ancient Burn `0.13.2`, even though the
+  toolchain actually installed is 1.98.0. Raised to `1.92` (Burn 0.21.0's
+  stated MSRV) to fix — a reminder to re-check this whenever a new
+  dependency resolves to a surprisingly old version.
+- Burn 0.21's `NdArray` backend fills random tensors — including module
+  weight initialization via `LinearConfig::init` — using rayon-parallel
+  chunks. Calling `tensor_engine::seed(n)` reliably reproduces a single
+  `Tensor::random` call, but **does not** reliably reproduce two separately
+  constructed modules' weights under normal multi-threaded execution — the
+  RNG draw order depends on thread scheduling. Verified by reproducing the
+  same assertion both ways: it passes consistently under
+  `RAYON_NUM_THREADS=1` and fails under default threading. Documented at the
+  call site (`topology-engine::scorer`) with a kept-but-`#[ignore]`d test
+  proving the limitation rather than hiding it. Flagged for
+  `training-engine` to resolve, work around, or explicitly accept before any
+  claim of exact experiment reproducibility (§31/§32) is made.

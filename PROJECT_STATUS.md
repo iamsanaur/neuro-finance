@@ -1,10 +1,10 @@
 # Project Status
 
-Last updated: 2026-08-31 (Milestone 5)
+Last updated: 2026-08-31 (Milestone 6)
 
 ## Current milestone
 
-**Milestone 5: `financial-graph` — sparse graph, sector + correlation builders — DONE**
+**Milestone 6: `topology-engine` — dynamic topology learner, first real Burn usage — DONE**
 
 ## Decision: real data source
 
@@ -204,14 +204,70 @@ Nothing beyond that scope until V0.1 is scientifically validated.
     and the dynamic/learned topology itself (§16) — those belong to
     `topology-engine`, not this crate.
 
+### Milestone 6 additions
+
+- **`tensor-engine` implemented** — the Burn-wrapping interface promised
+  since Milestone 1's environment decision. Re-exports `burn` wholesale
+  (`tensor_engine::burn`) plus two type aliases (`Backend`, `Device`) and a
+  `seed()` helper; no other crate depends on `burn` directly. Backend:
+  `Autodiff<NdArray<f32>>` — autodiff wrapped in now even though nothing
+  trains gradients yet, specifically to avoid a breaking `Tensor<B, _>` type
+  change across the workspace once `training-engine` needs it.
+  - **First real check of the Milestone 1 backend decision**: added Burn as
+    an actual dependency for the first time. MSRV had to be bumped from
+    1.75 to 1.92 (root `Cargo.toml`) — the declared MSRV was capping Burn to
+    an ancient 0.13.2 even though rustc 1.98.0 is actually installed; fixed
+    by raising the declared MSRV to match reality, not by pinning an old
+    Burn. Resolved to Burn 0.21.0 stable.
+  - **Real finding, documented rather than hidden**: Burn 0.21's `NdArray`
+    backend fills random tensors (including module weight init) via
+    rayon-parallel chunks, and `seed()` does **not** guarantee bit-identical
+    weights across separately-constructed modules under normal
+    multi-threaded execution — confirmed by reproducing it with
+    `RAYON_NUM_THREADS=1` (passes) vs. default threading (fails). Lower-level
+    single-tensor RNG (`Tensor::random`) *is* reliably deterministic under
+    seeding — only module-initialization's parallel fill path is affected.
+    Documented in `tensor-engine`'s and `topology-engine::scorer`'s doc
+    comments; the affected test is kept as `#[ignore]` (not deleted) so the
+    limitation stays checkable. **This is an open item for
+    `training-engine`** (a later milestone) to resolve, work around
+    (`RAYON_NUM_THREADS=1`), or accept with a documented caveat before any
+    claim of exact experiment reproducibility (§31/§32) is made.
+- **`topology-engine` implemented** (project spec §16–§18):
+  - `TopologyScorer`: `Q`/`K` linear projections producing a dense `[N, N]`
+    score matrix (`s_ij = Q_i^T K_j / sqrt(d)`) — an intentional intermediate,
+    never stored past top-k reduction (documented explicitly, since §13
+    could otherwise be misread as forbidding this standard attention step).
+  - `top_k_topology`: reduces scores to a sparse `FinancialGraph` via
+    **mutual top-k** (edge survives only if each endpoint is in the other's
+    top-k) — chosen specifically because it's what makes §47's "topology
+    degree <= configured top-k" hold as a hard guarantee, not just usually
+    true; a union rule was considered and rejected for exactly this reason.
+  - `TopologyPersistence`: EMA blending (`A_t = lambda*A_{t-1} +
+    (1-lambda)*A_new`) keyed by `EntityId` pairs (not `NodeId`, which isn't
+    stable across separately-built graphs); near-zero persisted edges are
+    dropped so decayed edges don't accumulate forever. `TopologyDiff`
+    reports created/deleted/persisted edges.
+  - `l_sparse`/`l_stability`: differentiable losses over the dense score
+    matrix (so `training-engine` can later sum them into a real training
+    loss and backprop through `W_q`/`W_k`). `l_relation`: a plain scalar
+    (edge-set overlap against a reference graph) since there's no way to
+    backprop through discrete graph membership; defaults to inactive
+    (`lambda_relation = 0.0` in `configs/default.toml`) since no relation
+    graph is wired into training yet.
+  - `connected_components`: the one structural metric needing real graph
+    traversal; full community detection deliberately deferred to the
+    topology-research milestone (§34) where it's actually needed.
+
 ## Verification (cumulative, latest milestone)
 
 ```
-cargo build --workspace     → success, 18 crates compiled
-cargo test --workspace      → 81 passed, 0 failed
+cargo build --workspace     → success, 18 crates compiled (34 total incl. deps)
+cargo test --workspace      → 104 passed, 0 failed, 1 ignored (documented)
                                (18 financial-types, 15 data-engine,
                                 33 feature-engine, 13 financial-graph,
-                                1 cli, 1 doctest)
+                                2 tensor-engine, 22 topology-engine,
+                                1 cli)
 cargo clippy --workspace --all-targets → no issues found
 cargo fmt --all -- --check  → clean
 cargo run -p cli -- --config configs/default.toml
@@ -238,12 +294,13 @@ cargo run -p cli -- --config configs/default.toml
 
 ## Next milestone
 
-**Milestone 6: `topology-engine`** (project spec §16–§18) — the dynamic
-topology learner: sparse top-k attention-scored adjacency
-(`s_ij = Q_i^T K_j / sqrt(d)`, configurable `k` in {4,8,16,32}), EMA
-persistence across time (`A_t = lambda*A_{t-1} + (1-lambda)*A_new`), and the
-sparsity/stability/relation regularization losses. This is the first crate
-that needs an actual tensor backend, so it's also where the Burn decision
-from Milestone 1 gets its first real check (add the dependency, benchmark
-`ndarray` vs `wgpu` on real top-k attention, confirm or revise the
-`docs/environment.md` decision).
+**Milestone 7: `neuro-model`** (project spec §19–§24) — starts assembling
+the actual `NeuroTopologicalFinancialModel`: a feature encoder (turning
+`feature-engine` output into node embeddings `topology-engine` can score),
+sparse graph message passing over `topology-engine`'s learned topology, and
+the first prediction head (regime classification — `RiskOn`/`Neutral`/
+`RiskOff`, matching `data-engine`'s synthetic regime labels exactly, per
+§25). Global attention/fusion (§20) and the temporal encoder (§21) are
+larger pieces of this same milestone's spec range; will scope precisely
+once the feature encoder and message passing are working, per the
+"don't build hundreds of files without validating" workflow rule (§56).

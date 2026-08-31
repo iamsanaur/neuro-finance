@@ -8,3 +8,10 @@ publish.workspace = true
 description = "Dynamic topology learner: sparse top-k attention-scored adjacency, persistence (EMA), sparsity/stability/relation regularization."
 
 [dependencies]
+financial-types = { workspace = true }
+financial-graph = { workspace = true }
+tensor-engine = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+chrono = { workspace = true }

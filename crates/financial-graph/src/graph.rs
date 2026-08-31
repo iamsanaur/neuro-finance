@@ -55,6 +55,13 @@ impl FinancialGraph {
         self.nodes.len()
     }
 
+    /// All node identities, in `NodeId` order (`nodes()[i]` is `NodeId(i)`'s
+    /// entity). Used by callers that need to rebuild a graph over the same
+    /// node set, e.g. `topology-engine`'s EMA persistence.
+    pub fn nodes(&self) -> &[EntityId] {
+        &self.nodes
+    }
+
     pub fn num_edges(&self) -> usize {
         self.edges.len()
     }

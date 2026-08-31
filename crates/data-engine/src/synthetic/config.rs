@@ -110,7 +110,7 @@ pub enum SyntheticMarketConfigError {
 
 impl SyntheticMarketConfig {
     pub fn validate(&self) -> Result<(), SyntheticMarketConfigError> {
-        if self.num_sectors == 0 || self.num_assets % self.num_sectors != 0 {
+        if self.num_sectors == 0 || !self.num_assets.is_multiple_of(self.num_sectors) {
             return Err(SyntheticMarketConfigError::AssetsNotDivisibleBySectors {
                 num_assets: self.num_assets,
                 num_sectors: self.num_sectors,
