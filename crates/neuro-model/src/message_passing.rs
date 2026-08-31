@@ -26,27 +26,32 @@
 //! trivial — 10,000 assets is 400MB, at the outer edge of what's still
 //! fine). If `N` ever grows enough for this to matter, the fix is a sparse
 //! matmul kernel, not a redesign of `FinancialGraph`'s storage.
+//!
+//! Generic over `B: Backend` — see `topology_engine::scorer`'s doc comment
+//! for why (a real gradient-tracking bug affecting every concrete-backend
+//! `#[derive(Module)]` struct, found in Milestone 8). The adjacency tensor
+//! is built on `h`'s own device (`h.device()`), so `forward` needs no
+//! separate device argument.
 
 use burn::module::Module;
 use burn::nn::{Linear, LinearConfig};
 use burn::tensor::activation::relu;
+use burn::tensor::backend::Backend;
 use burn::tensor::Tensor;
 use financial_graph::{FinancialGraph, NodeId, RelationType};
 use tensor_engine::burn;
-use tensor_engine::{device, Backend};
 
-#[derive(Module, Debug, Clone)]
-pub struct GraphMessagePassing {
-    value: Linear<Backend>,
-    update_mlp: Linear<Backend>,
+#[derive(Module, Debug)]
+pub struct GraphMessagePassing<B: Backend> {
+    value: Linear<B>,
+    update_mlp: Linear<B>,
 }
 
-impl GraphMessagePassing {
-    pub fn new(embed_dim: usize) -> Self {
-        let device = device();
+impl<B: Backend> GraphMessagePassing<B> {
+    pub fn new(embed_dim: usize, device: &B::Device) -> Self {
         Self {
-            value: LinearConfig::new(embed_dim, embed_dim).init(&device),
-            update_mlp: LinearConfig::new(embed_dim, embed_dim).init(&device),
+            value: LinearConfig::new(embed_dim, embed_dim).init(device),
+            update_mlp: LinearConfig::new(embed_dim, embed_dim).init(device),
         }
     }
 
@@ -60,10 +65,10 @@ impl GraphMessagePassing {
     /// `graph.num_nodes()` must equal `h.dims()[0]`.
     pub fn forward(
         &self,
-        h: Tensor<Backend, 2>,
+        h: Tensor<B, 2>,
         graph: &FinancialGraph,
         relation: RelationType,
-    ) -> Tensor<Backend, 2> {
+    ) -> Tensor<B, 2> {
         let n = graph.num_nodes();
         assert_eq!(h.dims()[0], n, "h's row count must match graph.num_nodes()");
 
@@ -78,8 +83,8 @@ impl GraphMessagePassing {
                 adjacency[i * n + neighbor.0 as usize] = (edge.weight as f32) / degree as f32;
             }
         }
-        let adjacency: Tensor<Backend, 2> =
-            Tensor::<Backend, 1>::from_data(adjacency.as_slice(), &device()).reshape([n, n]);
+        let adjacency: Tensor<B, 2> =
+            Tensor::<B, 1>::from_data(adjacency.as_slice(), &h.device()).reshape([n, n]);
 
         let v = self.value.forward(h.clone());
         let messages = adjacency.matmul(v);
@@ -94,6 +99,7 @@ mod tests {
     use chrono::{TimeZone, Utc};
     use financial_graph::Edge;
     use financial_types::EntityId;
+    use tensor_engine::{device, Backend as ConcreteBackend};
 
     fn ts() -> financial_types::Timestamp {
         Utc.with_ymd_and_hms(2020, 1, 1, 0, 0, 0).unwrap()
@@ -120,8 +126,8 @@ mod tests {
     fn forward_preserves_shape() {
         tensor_engine::seed(0);
         let n = 6;
-        let mp = GraphMessagePassing::new(8);
-        let h: Tensor<Backend, 2> = Tensor::zeros([n, 8], &device());
+        let mp: GraphMessagePassing<ConcreteBackend> = GraphMessagePassing::new(8, &device());
+        let h: Tensor<ConcreteBackend, 2> = Tensor::zeros([n, 8], &device());
         let graph = chain_graph(n);
         let out = mp.forward(h, &graph, RelationType::Learned);
         assert_eq!(out.dims(), [n, 8]);
@@ -137,8 +143,8 @@ mod tests {
     #[test]
     fn isolated_node_output_is_independent_of_graph_structure() {
         tensor_engine::seed(1);
-        let mp = GraphMessagePassing::new(4);
-        let h: Tensor<Backend, 2> = Tensor::zeros([3, 4], &device());
+        let mp: GraphMessagePassing<ConcreteBackend> = GraphMessagePassing::new(4, &device());
+        let h: Tensor<ConcreteBackend, 2> = Tensor::zeros([3, 4], &device());
 
         // Node 0 isolated in both graphs; graph_a has an edge 1-2, graph_b
         // does not (but node 0 is unaffected either way).

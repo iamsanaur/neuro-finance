@@ -18,15 +18,22 @@
 //! scalar, not a `Tensor` — there's no way to backpropagate through "is
 //! this edge in that other graph's edge set."
 
+use burn::tensor::backend::Backend;
 use burn::tensor::Tensor;
 use financial_graph::{FinancialGraph, RelationType};
 use tensor_engine::burn;
-use tensor_engine::Backend;
 
 /// Mean absolute score across the whole `[N, N]` matrix — discourages
 /// large-magnitude scores in general, which (combined with top-k selection)
 /// discourages the learner from committing strongly to unnecessary edges.
-pub fn l_sparse(scores: Tensor<Backend, 2>) -> Tensor<Backend, 1> {
+///
+/// Generic over `B` (any backend) rather than fixed to
+/// `tensor_engine::Backend`, matching `TopologyScorer<B>` — see that
+/// struct's doc comment for why concrete-backend fields specifically (not
+/// free functions like this one) were the actual source of the Milestone 8
+/// gradient-tracking bug; this function was never affected, but stays
+/// generic for symmetry with what it's meant to be summed against.
+pub fn l_sparse<B: Backend>(scores: Tensor<B, 2>) -> Tensor<B, 1> {
     scores.abs().mean()
 }
 
@@ -34,10 +41,7 @@ pub fn l_sparse(scores: Tensor<Backend, 2>) -> Tensor<Backend, 1> {
 /// discourages the topology from oscillating wildly step to step. Both
 /// tensors must have the same `[N, N]` shape (i.e. the same node set/order
 /// as each other).
-pub fn l_stability(
-    scores_t: Tensor<Backend, 2>,
-    scores_prev: Tensor<Backend, 2>,
-) -> Tensor<Backend, 1> {
+pub fn l_stability<B: Backend>(scores_t: Tensor<B, 2>, scores_prev: Tensor<B, 2>) -> Tensor<B, 1> {
     (scores_t - scores_prev).powf_scalar(2.0).mean()
 }
 
@@ -87,7 +91,7 @@ mod tests {
     use chrono::{TimeZone, Utc};
     use financial_graph::Edge;
     use financial_types::{EntityId, Timestamp};
-    use tensor_engine::device;
+    use tensor_engine::{device, Backend as ConcreteBackend};
 
     fn ts() -> Timestamp {
         Utc.with_ymd_and_hms(2020, 1, 1, 0, 0, 0).unwrap()
@@ -95,15 +99,15 @@ mod tests {
 
     #[test]
     fn l_sparse_is_zero_for_all_zero_scores() {
-        let scores: Tensor<Backend, 2> = Tensor::zeros([5, 5], &device());
+        let scores: Tensor<ConcreteBackend, 2> = Tensor::zeros([5, 5], &device());
         let loss: f32 = l_sparse(scores).into_scalar();
         assert!(loss.abs() < 1e-9);
     }
 
     #[test]
     fn l_sparse_increases_with_score_magnitude() {
-        let small: Tensor<Backend, 2> = Tensor::ones([4, 4], &device()) * 0.1;
-        let large: Tensor<Backend, 2> = Tensor::ones([4, 4], &device()) * 2.0;
+        let small: Tensor<ConcreteBackend, 2> = Tensor::ones([4, 4], &device()) * 0.1;
+        let large: Tensor<ConcreteBackend, 2> = Tensor::ones([4, 4], &device()) * 2.0;
         let loss_small: f32 = l_sparse(small).into_scalar();
         let loss_large: f32 = l_sparse(large).into_scalar();
         assert!(loss_large > loss_small);
@@ -111,16 +115,16 @@ mod tests {
 
     #[test]
     fn l_stability_is_zero_for_identical_matrices() {
-        let scores: Tensor<Backend, 2> = Tensor::ones([4, 4], &device());
+        let scores: Tensor<ConcreteBackend, 2> = Tensor::ones([4, 4], &device());
         let loss: f32 = l_stability(scores.clone(), scores).into_scalar();
         assert!(loss.abs() < 1e-9);
     }
 
     #[test]
     fn l_stability_increases_with_divergence() {
-        let a: Tensor<Backend, 2> = Tensor::zeros([4, 4], &device());
-        let b_small: Tensor<Backend, 2> = Tensor::ones([4, 4], &device()) * 0.1;
-        let b_large: Tensor<Backend, 2> = Tensor::ones([4, 4], &device()) * 1.0;
+        let a: Tensor<ConcreteBackend, 2> = Tensor::zeros([4, 4], &device());
+        let b_small: Tensor<ConcreteBackend, 2> = Tensor::ones([4, 4], &device()) * 0.1;
+        let b_large: Tensor<ConcreteBackend, 2> = Tensor::ones([4, 4], &device()) * 1.0;
         let loss_small: f32 = l_stability(a.clone(), b_small).into_scalar();
         let loss_large: f32 = l_stability(a, b_large).into_scalar();
         assert!(loss_large > loss_small);

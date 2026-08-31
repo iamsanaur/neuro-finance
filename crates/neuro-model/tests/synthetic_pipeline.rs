@@ -80,7 +80,8 @@ fn full_pipeline_runs_end_to_end_on_synthetic_data() {
         Tensor::<Backend, 1>::from_data(feature_data.as_slice(), &device())
             .reshape([n, feature_dim]);
 
-    let model = NeuroTopologicalFinancialModel::new(feature_dim, 16, 8);
+    let model: NeuroTopologicalFinancialModel<Backend> =
+        NeuroTopologicalFinancialModel::new(feature_dim, 16, 8, &device());
     let probs = model.forward(features, &entities, 4, as_of);
 
     assert_eq!(probs.dims(), [1, 3]);

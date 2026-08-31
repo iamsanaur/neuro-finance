@@ -8,3 +8,12 @@ publish.workspace = true
 description = "Mini-batch training loop, walk-forward validator, checkpointing, early stopping, deterministic seeding, leakage tests."
 
 [dependencies]
+financial-types = { workspace = true }
+neuro-model = { workspace = true }
+tensor-engine = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }
+
+[dev-dependencies]
+data-engine = { workspace = true }
+feature-engine = { workspace = true }

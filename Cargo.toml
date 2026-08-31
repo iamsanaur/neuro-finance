@@ -60,8 +60,9 @@ toml = "0.8"
 # ndarray (CPU) backend by default. autodiff is enabled now, ahead of
 # training-engine actually needing it, since wrapping/unwrapping a backend
 # in Autodiff<...> later would be a breaking type change for every crate
-# that touched a Tensor<B, _> in the meantime.
-burn = { version = "0.21", default-features = false, features = ["ndarray", "autodiff"] }
+# that touched a Tensor<B, _> in the meantime. "std" is required for
+# burn::record's file-based recorders (checkpointing, training-engine).
+burn = { version = "0.21", default-features = false, features = ["ndarray", "autodiff", "std"] }
 
 # Numerics
 ndarray = { version = "0.16", features = ["serde"] }

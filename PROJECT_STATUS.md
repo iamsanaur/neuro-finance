@@ -1,10 +1,52 @@
 # Project Status
 
-Last updated: 2026-08-31 (Milestone 7)
+Last updated: 2026-08-31 (Milestone 8)
 
 ## Current milestone
 
-**Milestone 7: `neuro-model` — feature encoder, message passing, regime head — DONE**
+**Milestone 8: `training-engine` — walk-forward validator, training loop, checkpointing — DONE**
+
+## Major finding this milestone: a real gradient-tracking bug, found and fixed
+
+While building the training loop, the model trained on ten epochs of a
+repeated example and the loss was **bit-for-bit identical** before and
+after — not "barely decreasing," literally unchanged to 17 significant
+digits. That's impossible from slow convergence; it meant zero gradient
+was reaching any parameter.
+
+Root cause, isolated with a series of minimal reproductions (see
+`crates/training-engine/src/train.rs` git history for the debug tests used,
+removed once the cause was confirmed): **every `#[derive(Module)]` struct in
+`topology-engine` and `neuro-model` had its backend baked in as the
+concrete `tensor_engine::Backend` type alias** (e.g. `Linear<Backend>`
+directly in a field), rather than being generic over a type parameter
+`B: Backend`. That compiles fine and forward passes work correctly — the
+bug only shows up when you actually try to train: `GradientsParams::from_grads`
+silently returns **zero entries** for such a struct, because Burn's
+`#[derive(Module)]` macro needs a real generic type parameter in scope to
+generate a working parameter-registration path. A bare `burn::nn::Linear<Backend>`
+used directly (not wrapped in a custom struct) trains fine; the moment
+it's wrapped in even a trivial one-field custom struct with a concrete
+backend, training silently becomes a no-op.
+
+**Fix**: every `Module`-deriving struct across `topology-engine`
+(`TopologyScorer`) and `neuro-model` (`FeatureEncoder`, `GraphMessagePassing`,
+`RegimeHead`, `NeuroTopologicalFinancialModel`) is now generic over
+`<B: burn::tensor::backend::Backend>`, taking a `device: &B::Device`
+constructor argument instead of calling `tensor_engine::device()`
+internally. `tensor_engine::Backend` is still the one concrete type this
+workspace actually uses — it's now supplied as the type argument at call
+sites (`TopologyScorer<tensor_engine::Backend>`), not baked into the
+struct definitions. All 134 tests (including the previously-broken training
+test) pass with this fix. Documented at the top of `topology-engine::scorer`
+(the first struct that needed it) and cross-referenced from every other
+struct that needed the same fix, so the next crate that adds a `Module`
+struct doesn't repeat the mistake.
+
+Also required raising `burn`'s feature set to include `"std"` (needed for
+`burn::record`'s file-based recorders, used by checkpointing) — omitted
+originally since the minimal `ndarray + autodiff` feature set from
+Milestone 6 didn't need it.
 
 ## Decision: real data source
 
@@ -295,15 +337,40 @@ Nothing beyond that scope until V0.1 is scientifically validated.
     point-in-time-safety sanity check (different `as_of` days produce
     different features from the same dataset).
 
+### Milestone 8 additions
+
+- **`training-engine` implemented** (project spec §29, §31):
+  - `WalkForwardValidator`: expanding or rolling train windows, fixed-length
+    validation/test windows, an embargo gap on both boundaries (§29:
+    "purging, embargo"). Rolls forward by `test_period` between splits, never
+    returns a partial trailing split. `from_years` matches
+    `configs/default.toml`'s `[walk_forward]` section field names directly.
+  - `train_epoch`/`evaluate`: the actual training loop. "Mini-batching"
+    here means **gradient accumulation** over `batch_size` trading days
+    (documented why: each day's topology graph has a different structure,
+    so days can't be stacked into one same-shaped batched tensor the way
+    i.i.d. examples usually are).
+  - `nll_loss`: negative log-likelihood computed directly on `RegimeHead`'s
+    already-softmax-normalized output (rather than reusing Burn's
+    logit-based `CrossEntropyLoss`, which would have required restructuring
+    `neuro-model` just to expose pre-softmax logits).
+  - `EarlyStopping`: patience + minimum-improvement-delta, tested including
+    the "improvement resets the strike counter" case.
+  - `save_checkpoint`/`load_checkpoint`: round-trip tested (`NamedMpkFileRecorder`)
+    to confirm a loaded model reproduces identical forward output.
+  - Baseline models (§28) deliberately **not** here — they belong to
+    `evaluation` per the crate's Milestone-1 description; adding them to
+    `training-engine` would be scope creep this crate doesn't need.
+
 ## Verification (cumulative, latest milestone)
 
 ```
 cargo build --workspace     → success, 18 crates compiled
-cargo test --workspace      → 113 passed, 0 failed, 1 ignored (documented)
+cargo test --workspace      → 134 passed, 0 failed, 1 ignored (documented)
                                (18 financial-types, 15 data-engine,
                                 33 feature-engine, 13 financial-graph,
                                 2 tensor-engine, 22 topology-engine,
-                                9 neuro-model, 1 cli)
+                                9 neuro-model, 21 training-engine, 1 cli)
 cargo clippy --workspace --all-targets → no issues found
 cargo fmt --all -- --check  → clean
 cargo run -p cli -- --config configs/default.toml
@@ -330,13 +397,16 @@ cargo run -p cli -- --config configs/default.toml
 
 ## Next milestone
 
-**Milestone 8: `training-engine`** (project spec §29, §31) — the first
-actual training loop: mini-batching, an optimizer (Burn's `optim` module),
-a walk-forward validator (§29 — expanding/rolling window, purging, embargo),
-checkpointing, early stopping. This is where the model actually gets fit to
-data for the first time, and where the Milestone 6 RNG-determinism caveat
-needs a real decision (accept + pin `RAYON_NUM_THREADS=1`, or investigate
-further). Also the natural point to add the baseline models (§28: naive,
-logistic regression, GBM, MLP) `neuro-model` should be compared against —
-without them, a regime-classification accuracy number has no reference
-point to be judged against.
+**Milestone 9: `evaluation`** (project spec §28, §32) — baseline models
+(naive persistence, logistic regression, gradient boosting, MLP — enough to
+give `neuro-model` a real reference point) and metrics (accuracy, F1, AUC,
+directional accuracy). This is also the natural point to run the first real
+experiment: train `neuro-model` on a `WalkForwardValidator` split of the
+synthetic data, compare its regime-classification accuracy against the
+baselines, and write up the first `experiments/<id>/` result per §32 — the
+project's first actual scientific output, however preliminary.
+
+Still open: the Milestone 6 Burn RNG-determinism caveat
+(`RAYON_NUM_THREADS=1` needed for exact weight-init reproducibility) —
+noted again here since Milestone 8 is where reproducible experiments start
+actually mattering; not yet resolved, still just documented.

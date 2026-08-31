@@ -12,23 +12,28 @@
 //! guarantee that bound, since a popular node could be selected by more
 //! than `k` others without ever selecting them back.
 
+use burn::tensor::backend::Backend;
 use burn::tensor::Tensor;
 use financial_graph::{Edge, FinancialGraph, NodeId, RelationType};
 use financial_types::{EntityId, Timestamp};
 use std::collections::HashSet;
 use tensor_engine::burn;
-use tensor_engine::Backend;
 
 /// `scores`: `[N, N]` from [`crate::scorer::TopologyScorer::forward`].
 /// `entities[i]` is node `i`'s identity, in the same order the embeddings
 /// that produced `scores` were in. `k` is the top-k neighbor count per node
 /// (project spec §16: configurable, typically 4/8/16/32).
 ///
+/// Generic over `B` (any backend, not just `tensor_engine::Backend`) purely
+/// so callers with a `TopologyScorer<B>` for some other `B` aren't forced to
+/// convert — this function itself detaches from the autodiff graph
+/// immediately (`.into_data()`) and needs no gradient tracking of its own.
+///
 /// Panics if `entities.len()` doesn't match `scores`' dimensions, or if
 /// `k >= entities.len()` (there's no meaningful "other" node to exclude
 /// self-selection against otherwise).
-pub fn top_k_topology(
-    scores: Tensor<Backend, 2>,
+pub fn top_k_topology<B: Backend>(
+    scores: Tensor<B, 2>,
     entities: &[EntityId],
     k: usize,
     timestamp: Timestamp,
@@ -86,7 +91,7 @@ pub fn top_k_topology(
 mod tests {
     use super::*;
     use chrono::{TimeZone, Utc};
-    use tensor_engine::device;
+    use tensor_engine::{device, Backend as ConcreteBackend};
 
     fn ts() -> Timestamp {
         Utc.with_ymd_and_hms(2020, 1, 1, 0, 0, 0).unwrap()
@@ -103,7 +108,7 @@ mod tests {
         tensor_engine::seed(1);
         let n = 20;
         let k = 4;
-        let scores: Tensor<Backend, 2> = Tensor::random(
+        let scores: Tensor<ConcreteBackend, 2> = Tensor::random(
             [n, n],
             burn::tensor::Distribution::Normal(0.0, 1.0),
             &device(),
@@ -133,8 +138,8 @@ mod tests {
             1.0, 0.0, 5.0, // node 1: prefers 2 (5.0) over 0 (1.0)
             5.0, 1.0, 0.0, // node 2: prefers 0 (5.0) over 1 (1.0)
         ];
-        let scores: Tensor<Backend, 2> =
-            Tensor::<Backend, 1>::from_data(data.as_slice(), &device).reshape([n, n]);
+        let scores: Tensor<ConcreteBackend, 2> =
+            Tensor::<ConcreteBackend, 1>::from_data(data.as_slice(), &device).reshape([n, n]);
         let ents = entities(n);
         let graph = top_k_topology(scores, &ents, 1, ts());
 
@@ -148,7 +153,7 @@ mod tests {
     fn rejects_k_at_or_above_node_count() {
         let device = device();
         let n = 5;
-        let scores: Tensor<Backend, 2> = Tensor::zeros([n, n], &device);
+        let scores: Tensor<ConcreteBackend, 2> = Tensor::zeros([n, n], &device);
         top_k_topology(scores, &entities(n), 5, ts());
     }
 }

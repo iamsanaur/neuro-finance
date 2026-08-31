@@ -31,33 +31,45 @@
 //! selection in graph learning (the alternative, a differentiable
 //! relaxation like Gumbel-softmax top-k, is real added complexity with no
 //! evidence yet that it's needed — again, §2).
+//!
+//! Generic over `B: Backend` — see `topology_engine::scorer`'s doc comment
+//! for why (a real gradient-tracking bug affecting every concrete-backend
+//! `#[derive(Module)]` struct, found in Milestone 8; this struct, wiring
+//! together four such structs, is exactly where that bug would otherwise
+//! silently make training a no-op — as it briefly did while building
+//! Milestone 8, before this fix).
 
 use crate::encoder::FeatureEncoder;
 use crate::message_passing::GraphMessagePassing;
 use crate::regime_head::RegimeHead;
 use burn::module::Module;
+use burn::tensor::backend::Backend;
 use burn::tensor::Tensor;
 use financial_graph::RelationType;
 use financial_types::{EntityId, Timestamp};
 use tensor_engine::burn;
-use tensor_engine::Backend;
 use topology_engine::{top_k_topology, TopologyScorer};
 
-#[derive(Module, Debug, Clone)]
-pub struct NeuroTopologicalFinancialModel {
-    encoder: FeatureEncoder,
-    topology_scorer: TopologyScorer,
-    message_passing: GraphMessagePassing,
-    regime_head: RegimeHead,
+#[derive(Module, Debug)]
+pub struct NeuroTopologicalFinancialModel<B: Backend> {
+    encoder: FeatureEncoder<B>,
+    topology_scorer: TopologyScorer<B>,
+    message_passing: GraphMessagePassing<B>,
+    regime_head: RegimeHead<B>,
 }
 
-impl NeuroTopologicalFinancialModel {
-    pub fn new(feature_dim: usize, embed_dim: usize, topology_proj_dim: usize) -> Self {
+impl<B: Backend> NeuroTopologicalFinancialModel<B> {
+    pub fn new(
+        feature_dim: usize,
+        embed_dim: usize,
+        topology_proj_dim: usize,
+        device: &B::Device,
+    ) -> Self {
         Self {
-            encoder: FeatureEncoder::new(feature_dim, embed_dim),
-            topology_scorer: TopologyScorer::new(embed_dim, topology_proj_dim),
-            message_passing: GraphMessagePassing::new(embed_dim),
-            regime_head: RegimeHead::new(embed_dim),
+            encoder: FeatureEncoder::new(feature_dim, embed_dim, device),
+            topology_scorer: TopologyScorer::new(embed_dim, topology_proj_dim, device),
+            message_passing: GraphMessagePassing::new(embed_dim, device),
+            regime_head: RegimeHead::new(embed_dim, device),
         }
     }
 
@@ -72,11 +84,11 @@ impl NeuroTopologicalFinancialModel {
     /// (`[RiskOn, Neutral, RiskOff]`).
     pub fn forward(
         &self,
-        features: Tensor<Backend, 2>,
+        features: Tensor<B, 2>,
         entities: &[EntityId],
         top_k: usize,
         timestamp: Timestamp,
-    ) -> Tensor<Backend, 2> {
+    ) -> Tensor<B, 2> {
         let h = self.encoder.forward(features);
         let scores = self.topology_scorer.forward(h.clone());
         let topology = top_k_topology(scores, entities, top_k, timestamp);
@@ -91,6 +103,7 @@ impl NeuroTopologicalFinancialModel {
 mod tests {
     use super::*;
     use chrono::{TimeZone, Utc};
+    use tensor_engine::Backend as ConcreteBackend;
 
     fn ts() -> Timestamp {
         Utc.with_ymd_and_hms(2020, 1, 1, 0, 0, 0).unwrap()
@@ -105,8 +118,9 @@ mod tests {
         tensor_engine::seed(0);
         let n = 20;
         let feature_dim = 6;
-        let model = NeuroTopologicalFinancialModel::new(feature_dim, 16, 8);
-        let features: Tensor<Backend, 2> = Tensor::random(
+        let model: NeuroTopologicalFinancialModel<ConcreteBackend> =
+            NeuroTopologicalFinancialModel::new(feature_dim, 16, 8, &tensor_engine::device());
+        let features: Tensor<ConcreteBackend, 2> = Tensor::random(
             [n, feature_dim],
             burn::tensor::Distribution::Normal(0.0, 1.0),
             &tensor_engine::device(),
@@ -128,8 +142,9 @@ mod tests {
     fn forward_is_deterministic_for_fixed_weights() {
         tensor_engine::seed(0);
         let n = 15;
-        let model = NeuroTopologicalFinancialModel::new(5, 12, 6);
-        let features: Tensor<Backend, 2> = Tensor::random(
+        let model: NeuroTopologicalFinancialModel<ConcreteBackend> =
+            NeuroTopologicalFinancialModel::new(5, 12, 6, &tensor_engine::device());
+        let features: Tensor<ConcreteBackend, 2> = Tensor::random(
             [n, 5],
             burn::tensor::Distribution::Normal(0.0, 1.0),
             &tensor_engine::device(),

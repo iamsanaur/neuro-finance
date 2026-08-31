@@ -89,3 +89,32 @@ Burn was added as an actual dependency for the first time in `tensor-engine`
   proving the limitation rather than hiding it. Flagged for
   `training-engine` to resolve, work around, or explicitly accept before any
   claim of exact experiment reproducibility (§31/§32) is made.
+
+## A second, more serious Burn finding (Milestone 8): concrete-backend
+`Module` structs silently break gradient tracking
+
+While building `training-engine`'s training loop, a model trained for ten
+epochs on a repeated example with the loss **exactly unchanged** —
+conclusive evidence of zero gradient flow, not slow convergence. Root
+cause, confirmed by a minimal reproduction: a `#[derive(Module)]` struct
+whose fields use a *concrete* backend type (`Linear<tensor_engine::Backend>`
+written directly, rather than `Linear<B>` for a generic `B: Backend`)
+compiles and runs forward passes correctly, but `GradientsParams::from_grads`
+silently returns **zero entries** for it. Burn's derive macro needs an
+actual generic type parameter in scope to generate a working
+parameter-registration path; a bare `burn::nn::Linear<ConcreteBackend>`
+used directly trains fine, but the moment it's wrapped in even a trivial
+custom struct with the backend baked in, training silently becomes a
+no-op — with no error, warning, or panic anywhere.
+
+Every `Module`-deriving struct in `topology-engine` and `neuro-model` was
+generic-ized (`<B: Backend>`, taking `device: &B::Device` in its
+constructor) to fix this; `tensor_engine::Backend` is still the one
+concrete backend actually used, supplied as a type argument at call sites
+rather than hardcoded into struct definitions. Full writeup and the fix's
+before/after: `PROJECT_STATUS.md`, Milestone 8.
+
+**Takeaway for future crates**: any new `#[derive(Module)]` struct in this
+workspace must be written `struct Foo<B: Backend> { field: SomeBurnType<B> }`,
+never `struct Foo { field: SomeBurnType<ConcreteBackend> }` — the latter
+compiles, runs, and passes forward-pass tests, and is still wrong.

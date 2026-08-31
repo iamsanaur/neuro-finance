@@ -15,22 +15,41 @@
 //! `Tensor` returned by `forward` is not retained past that (or past a loss
 //! computation, e.g. [`crate::regularization::l_stability`], which also
 //! only needs it transiently).
+//!
+//! ## Why this struct is generic over `B: Backend`, not fixed to
+//! `tensor_engine::Backend`
+//!
+//! A real bug, found while building `training-engine` (Milestone 8), not a
+//! stylistic preference: a `#[derive(Module)]` struct whose fields use a
+//! *concrete* backend type (e.g. `Linear<tensor_engine::Backend>` written
+//! directly) compiles and runs forward passes correctly, but
+//! `GradientsParams::from_grads` silently returns **zero** entries for
+//! it — Burn's derive macro needs an actual generic type parameter to
+//! generate a working parameter-registration path for training; a
+//! monomorphized field type produces a `Module` impl that *looks* complete
+//! (forward works) but isn't wired for gradient extraction. Confirmed with
+//! a minimal reproduction (a one-field wrapper around `Linear`) before
+//! changing every `Module` struct in the workspace — see `PROJECT_STATUS.md`
+//! and `docs/environment.md` for the full writeup. `tensor_engine::Backend`
+//! is still the one concrete type actually *used* — just as the type
+//! argument at the call site (`TopologyScorer<tensor_engine::Backend>`),
+//! not baked into the struct definition.
 
 use burn::module::Module;
 use burn::nn::{Linear, LinearConfig};
+use burn::tensor::backend::Backend;
 use burn::tensor::Tensor;
 use tensor_engine::burn;
-use tensor_engine::{device, Backend};
 
-#[derive(Module, Debug, Clone)]
-pub struct TopologyScorer {
-    query: Linear<Backend>,
-    key: Linear<Backend>,
+#[derive(Module, Debug)]
+pub struct TopologyScorer<B: Backend> {
+    query: Linear<B>,
+    key: Linear<B>,
     #[module(skip)]
     proj_dim: usize,
 }
 
-impl TopologyScorer {
+impl<B: Backend> TopologyScorer<B> {
     /// `input_dim` is the node embedding size; `proj_dim` is the
     /// query/key projection size (`d` in the formula above). No bias term
     /// on either projection — a bias would shift every score by a constant
@@ -40,22 +59,21 @@ impl TopologyScorer {
     /// drop — but it is standard practice for attention-style scoring, and
     /// keeps the parameter count and the diff against the literal spec
     /// formula both smaller).
-    pub fn new(input_dim: usize, proj_dim: usize) -> Self {
-        let device = device();
+    pub fn new(input_dim: usize, proj_dim: usize, device: &B::Device) -> Self {
         Self {
             query: LinearConfig::new(input_dim, proj_dim)
                 .with_bias(false)
-                .init(&device),
+                .init(device),
             key: LinearConfig::new(input_dim, proj_dim)
                 .with_bias(false)
-                .init(&device),
+                .init(device),
             proj_dim,
         }
     }
 
     /// `h`: `[N, input_dim]` node embeddings. Returns the `[N, N]` score
     /// matrix (`scores[i][j] = s_ij`).
-    pub fn forward(&self, h: Tensor<Backend, 2>) -> Tensor<Backend, 2> {
+    pub fn forward(&self, h: Tensor<B, 2>) -> Tensor<B, 2> {
         let q = self.query.forward(h.clone());
         let k = self.key.forward(h);
         let scale = (self.proj_dim as f64).sqrt();
@@ -66,12 +84,13 @@ impl TopologyScorer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tensor_engine::{device, Backend as ConcreteBackend};
 
     #[test]
     fn forward_produces_n_by_n_scores() {
         tensor_engine::seed(0);
-        let scorer = TopologyScorer::new(8, 4);
-        let h: Tensor<Backend, 2> = Tensor::random(
+        let scorer: TopologyScorer<ConcreteBackend> = TopologyScorer::new(8, 4, &device());
+        let h: Tensor<ConcreteBackend, 2> = Tensor::random(
             [10, 8],
             burn::tensor::Distribution::Normal(0.0, 1.0),
             &device(),
@@ -88,8 +107,8 @@ mod tests {
     #[test]
     fn forward_is_deterministic_for_fixed_weights() {
         tensor_engine::seed(0);
-        let scorer = TopologyScorer::new(5, 3);
-        let h: Tensor<Backend, 2> = Tensor::random(
+        let scorer: TopologyScorer<ConcreteBackend> = TopologyScorer::new(5, 3, &device());
+        let h: Tensor<ConcreteBackend, 2> = Tensor::random(
             [6, 5],
             burn::tensor::Distribution::Normal(0.0, 1.0),
             &device(),
@@ -124,24 +143,25 @@ mod tests {
     /// reproducing a training run's *initial weights* across separate
     /// process runs requires pinning `RAYON_NUM_THREADS=1`, which is
     /// recorded in `PROJECT_STATUS.md` as a known issue for
-    /// `training-engine` (a later milestone) to either accept, work around,
-    /// or fix upstream. This test is `#[ignore]`d rather than deleted, so
-    /// the limitation stays documented and re-checkable, without failing
-    /// CI on ordinary multi-threaded runs.
+    /// `training-engine` to either accept, work around, or fix upstream.
+    /// This test is `#[ignore]`d rather than deleted, so the limitation
+    /// stays documented and re-checkable, without failing CI on ordinary
+    /// multi-threaded runs.
     #[test]
     #[ignore = "only deterministic with RAYON_NUM_THREADS=1 — see doc comment"]
     fn weight_initialization_is_only_deterministic_single_threaded() {
-        let h: Tensor<Backend, 2> = Tensor::random(
+        let h: Tensor<ConcreteBackend, 2> = Tensor::random(
             [6, 5],
             burn::tensor::Distribution::Normal(0.0, 1.0),
             &device(),
         );
 
         tensor_engine::seed(123);
-        let scores_a = TopologyScorer::new(5, 3).forward(h.clone());
+        let scores_a: Tensor<ConcreteBackend, 2> =
+            TopologyScorer::new(5, 3, &device()).forward(h.clone());
 
         tensor_engine::seed(123);
-        let scores_b = TopologyScorer::new(5, 3).forward(h);
+        let scores_b: Tensor<ConcreteBackend, 2> = TopologyScorer::new(5, 3, &device()).forward(h);
 
         let diff: f32 = (scores_a - scores_b).abs().sum().into_scalar();
         assert!(

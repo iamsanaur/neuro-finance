@@ -9,13 +9,17 @@
 //! is the natural shape for this task (as opposed to per-asset heads, which
 //! is what the *second* task, §26's asset direction prediction, will need
 //! instead).
+//!
+//! Generic over `B: Backend` — see `topology_engine::scorer`'s doc comment
+//! for why (a real gradient-tracking bug affecting every concrete-backend
+//! `#[derive(Module)]` struct, found in Milestone 8).
 
 use burn::module::Module;
 use burn::nn::{Linear, LinearConfig};
 use burn::tensor::activation::softmax;
+use burn::tensor::backend::Backend;
 use burn::tensor::Tensor;
 use tensor_engine::burn;
-use tensor_engine::{device, Backend};
 
 pub const NUM_REGIME_CLASSES: usize = 3;
 
@@ -23,21 +27,21 @@ pub const NUM_REGIME_CLASSES: usize = 3;
 /// `data_engine::synthetic::regime::MarketRegime::ALL`'s order exactly, so
 /// index `i` here and `MarketRegime::ALL[i]` there always refer to the same
 /// class without a separate lookup table.
-#[derive(Module, Debug, Clone)]
-pub struct RegimeHead {
-    classifier: Linear<Backend>,
+#[derive(Module, Debug)]
+pub struct RegimeHead<B: Backend> {
+    classifier: Linear<B>,
 }
 
-impl RegimeHead {
-    pub fn new(embed_dim: usize) -> Self {
+impl<B: Backend> RegimeHead<B> {
+    pub fn new(embed_dim: usize, device: &B::Device) -> Self {
         Self {
-            classifier: LinearConfig::new(embed_dim, NUM_REGIME_CLASSES).init(&device()),
+            classifier: LinearConfig::new(embed_dim, NUM_REGIME_CLASSES).init(device),
         }
     }
 
     /// `h`: `[N, embed_dim]` node embeddings. Returns `[1, 3]` class
     /// probabilities (softmax-normalized, sums to `1.0`).
-    pub fn forward(&self, h: Tensor<Backend, 2>) -> Tensor<Backend, 2> {
+    pub fn forward(&self, h: Tensor<B, 2>) -> Tensor<B, 2> {
         let pooled = h.mean_dim(0); // [1, embed_dim]
         let logits = self.classifier.forward(pooled); // [1, 3]
         softmax(logits, 1)
@@ -47,12 +51,13 @@ impl RegimeHead {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tensor_engine::{device, Backend as ConcreteBackend};
 
     #[test]
     fn output_is_a_valid_probability_distribution() {
         tensor_engine::seed(0);
-        let head = RegimeHead::new(10);
-        let h: Tensor<Backend, 2> = Tensor::random(
+        let head: RegimeHead<ConcreteBackend> = RegimeHead::new(10, &device());
+        let h: Tensor<ConcreteBackend, 2> = Tensor::random(
             [50, 10],
             burn::tensor::Distribution::Normal(0.0, 1.0),
             &device(),
