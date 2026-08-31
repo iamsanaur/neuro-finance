@@ -1,10 +1,10 @@
 # Project Status
 
-Last updated: 2026-08-31 (Milestone 3)
+Last updated: 2026-08-31 (Milestone 4)
 
 ## Current milestone
 
-**Milestone 3: synthetic market generator (`data-engine`) — DONE**
+**Milestone 4: `feature-engine` — causal, point-in-time-safe features — DONE**
 
 ## Scope reminder
 
@@ -132,12 +132,40 @@ Nothing beyond that scope until V0.1 is scientifically validated.
   `data/raw` or `data/processed` yet — that lands with the provider trait
   layer.
 
+### Milestone 4 additions
+
+- **`feature-engine` implemented** (project spec §11): log returns, rolling
+  (multi-period) returns, momentum, rolling volatility, moving average,
+  drawdown, rolling correlation, rolling beta, volume change, dollar-volume
+  liquidity.
+  - Every rolling function is built on one primitive, `rolling::rolling_apply`,
+    which enforces trailing-only alignment, an explicit `window`, and an
+    explicit `min_periods` in a single place (§11: "Every rolling operation
+    must explicitly define: window, alignment, minimum observations. No
+    centered windows.") — `drawdown` is the one exception, documented as an
+    expanding (not fixed) window by necessity, still provably causal.
+  - **Causality is tested as a property, not spot-checked**: every module
+    has a `prefix_computation_matches_full_computation` test — computing a
+    feature on a prefix of a series must reproduce, index-for-index, what
+    computing on the full series gives for those same indices. This is the
+    concrete form of §30's "future rolling statistics" leakage test.
+  - An integration test (`tests/synthetic_pipeline.rs`) runs the same
+    causality property against real `data-engine`-generated series (GARCH
+    clustering, regime switches, sector shocks included) rather than only
+    smooth hand-built fixtures, since irregular series are what would
+    actually expose an off-by-one leak.
+  - Explicitly deferred to V0.2 (§51, when real fundamental/macro data
+    exists): valuation, revenue growth, earnings growth, interest-rate
+    changes, yield curve slope — there is no data source for any of these
+    yet, so stub functions would be untestable.
+
 ## Verification (cumulative, latest milestone)
 
 ```
 cargo build --workspace     → success, 18 crates compiled
-cargo test --workspace      → 34 passed, 0 failed
-                               (18 financial-types, 15 data-engine, 1 cli)
+cargo test --workspace      → 68 passed, 0 failed
+                               (18 financial-types, 15 data-engine,
+                                33 feature-engine, 1 cli, 1 doctest)
 cargo clippy --workspace --all-targets → no issues found
 cargo fmt --all -- --check  → clean
 cargo run -p cli -- --config configs/default.toml
@@ -164,9 +192,10 @@ cargo run -p cli -- --config configs/default.toml
 
 ## Next milestone
 
-**Milestone 4: `feature-engine`** (project spec §11) — causal, point-in-time-
-safe features on top of the synthetic bars: log returns, rolling returns,
-volatility, momentum, moving averages, drawdown, rolling correlation,
-liquidity. Every rolling operation must explicitly declare window,
-alignment, and minimum observations, with no centered windows and no future
-values — with leakage tests proving it (§30).
+**Milestone 5: `financial-graph`** (project spec §12–§15) — the
+`FinancialGraph` type (nodes, edges, relation types), sparse adjacency
+storage (not dense N×N), and the first two static graphs: a sector graph
+(from the synthetic universe's sector assignment) and a correlation graph
+(from `feature-engine`'s `rolling_correlation`, computed point-in-time-safe
+as of each day). This is what the topology learner (Milestone 7+) will
+eventually be compared against as a baseline.

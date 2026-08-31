@@ -198,6 +198,13 @@ version = "0.1.0"
 [[package]]
 name = "feature-engine"
 version = "0.1.0"
+dependencies = [
+ "chrono",
+ "data-engine",
+ "financial-types",
+ "rand",
+ "rand_chacha",
+]
 
 [[package]]
 name = "financial-graph"
