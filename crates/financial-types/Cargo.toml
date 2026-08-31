@@ -1,0 +1,10 @@
+[package]
+name = "financial-types"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Strongly-typed, timezone-aware financial data structures (bars, fundamentals, macro, news, point-in-time envelopes)."
+
+[dependencies]

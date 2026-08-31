@@ -1,0 +1,10 @@
+[package]
+name = "llm-interface"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Structured-context bridge from model evidence to an LLM for explanation only, never a source of numeric authority. Planned for V0.3."
+
+[dependencies]

@@ -1,0 +1,10 @@
+[package]
+name = "training-engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Mini-batch training loop, walk-forward validator, checkpointing, early stopping, deterministic seeding, leakage tests."
+
+[dependencies]

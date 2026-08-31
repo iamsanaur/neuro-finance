@@ -1,0 +1,10 @@
+[package]
+name = "monitoring"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Structured observability: latency, topology drift, prediction distribution, risk violations. Planned for V0.2."
+
+[dependencies]

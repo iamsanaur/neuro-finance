@@ -1,0 +1,10 @@
+[package]
+name = "tensor-engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Thin internal interface over the chosen ML tensor backend (Burn), isolating the rest of the workspace from backend choice."
+
+[dependencies]

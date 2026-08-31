@@ -1,0 +1,10 @@
+[package]
+name = "paper-trading"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Continuous simulated-execution engine recording predictions, fills, PnL, costs, slippage. Planned for V0.3."
+
+[dependencies]

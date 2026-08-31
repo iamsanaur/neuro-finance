@@ -1,0 +1,51 @@
+# Default configuration for NeuroTopological Financial AI — V0.1.
+# Every numeric knob called out in the project spec as "must be configurable"
+# lives here, not hard-coded in source. Override by pointing the CLI at a
+# different file; do not fork this file per-experiment — use experiments/<id>/config.toml
+# for that (see docs/architecture.md).
+
+[universe]
+num_assets = 100
+num_sectors = 10
+
+[data]
+raw_dir = "data/raw"
+interim_dir = "data/interim"
+processed_dir = "data/processed"
+# Synthetic generator is the only source in V0.1 (see docs/architecture.md §10).
+source = "synthetic"
+
+[sequence]
+# Start at 30 per §21; 60/120 are supported later but not the V0.1 default.
+length = 30
+
+[topology]
+# Sparse top-k connectivity per node (§16). Configurable: 4 / 8 / 16 / 32.
+top_k = 8
+# EMA persistence: A_t = lambda * A_{t-1} + (1 - lambda) * A_new (§17).
+lambda_persistence = 0.9
+
+[topology.regularization]
+lambda_sparse = 0.01
+lambda_stability = 0.01
+lambda_relation = 0.0 # off by default in V0.1; static relation graphs aren't wired in yet
+
+[training]
+batch_size = 32
+learning_rate = 1.0e-3
+max_epochs = 50
+early_stopping_patience = 5
+seed = 42
+
+[walk_forward]
+# Placeholder windows; replaced with real calendar ranges once real/synthetic
+# data has an actual date range (§29).
+train_years = 8
+validation_years = 1
+test_years = 1
+embargo_days = 5
+
+[backtest]
+transaction_cost_bps = 5.0
+slippage_bps = 2.0
+max_position_weight = 0.05

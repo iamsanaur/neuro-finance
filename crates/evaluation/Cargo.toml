@@ -1,0 +1,10 @@
+[package]
+name = "evaluation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Metrics (accuracy/F1/AUC/directional accuracy/regression error), baseline models, ablation harness, research report generation."
+
+[dependencies]

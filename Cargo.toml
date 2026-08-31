@@ -1,0 +1,84 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/financial-types",
+    "crates/data-engine",
+    "crates/feature-engine",
+    "crates/financial-graph",
+    "crates/topology-engine",
+    "crates/tensor-engine",
+    "crates/neuro-model",
+    "crates/training-engine",
+    "crates/evaluation",
+    "crates/backtester",
+    "crates/portfolio-engine",
+    "crates/risk-engine",
+    "crates/paper-trading",
+    "crates/inference",
+    "crates/llm-interface",
+    "crates/api",
+    "crates/monitoring",
+    "crates/cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "UNLICENSED"
+repository = "local"
+publish = false
+
+# Shared dependency versions. Individual crates opt in with `<dep> = { workspace = true }`.
+# Keep this list to what's actually used by V0.1 crates; add entries only when a crate needs them.
+[workspace.dependencies]
+# Core
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Time (all financial timestamps must be timezone-aware — see docs/data-model.md)
+chrono = { version = "0.4", features = ["serde"] }
+
+# Parallelism / async
+rayon = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Configuration
+toml = "0.8"
+
+# Numerics
+ndarray = { version = "0.16", features = ["serde"] }
+rand = "0.8"
+rand_chacha = "0.3"
+
+# Intra-workspace crates
+financial-types = { path = "crates/financial-types" }
+data-engine = { path = "crates/data-engine" }
+feature-engine = { path = "crates/feature-engine" }
+financial-graph = { path = "crates/financial-graph" }
+topology-engine = { path = "crates/topology-engine" }
+tensor-engine = { path = "crates/tensor-engine" }
+neuro-model = { path = "crates/neuro-model" }
+training-engine = { path = "crates/training-engine" }
+evaluation = { path = "crates/evaluation" }
+backtester = { path = "crates/backtester" }
+portfolio-engine = { path = "crates/portfolio-engine" }
+risk-engine = { path = "crates/risk-engine" }
+paper-trading = { path = "crates/paper-trading" }
+inference = { path = "crates/inference" }
+llm-interface = { path = "crates/llm-interface" }
+monitoring = { path = "crates/monitoring" }
+
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+lto = true
+codegen-units = 1

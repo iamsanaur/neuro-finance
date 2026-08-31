@@ -1,0 +1,10 @@
+[package]
+name = "portfolio-engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Converts predictions to target weights under constraints; computes turnover, exposure, risk. Planned for V0.2."
+
+[dependencies]

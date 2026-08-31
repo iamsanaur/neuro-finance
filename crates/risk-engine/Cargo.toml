@@ -1,0 +1,10 @@
+[package]
+name = "risk-engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Independent risk gate capable of rejecting portfolio decisions (exposure, leverage, concentration, drawdown, liquidity). Planned for V0.2."
+
+[dependencies]
