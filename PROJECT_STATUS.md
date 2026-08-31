@@ -1,10 +1,35 @@
 # Project Status
 
-Last updated: 2026-08-31 (Milestone 8)
+Last updated: 2026-08-31 (Milestone 9)
 
 ## Current milestone
 
-**Milestone 8: `training-engine` — walk-forward validator, training loop, checkpointing — DONE**
+**Milestone 9: `evaluation` + the project's first real experiment — DONE**
+
+## First experiment result (exp-0001) — an honest negative/inconclusive finding
+
+Ran `neuro-model` vs. a flat logistic-regression baseline vs.
+majority-class vs. naive-persistence on one walk-forward split of synthetic
+data (30 assets, 900 days; train 500d / embargo 5d / validation 100d
+[unused] / embargo 5d / test 100d). Full report:
+`experiments/exp-0001-first-regime-classification/RESEARCH_REPORT.md`.
+
+**Result: `naive_persistence` scored 0.98 test accuracy; `neuro_model`,
+`logistic_regression`, and `majority_class` all scored 0.00.** Training
+loss for both trainable models plateaued at ≈1.10–1.12 — barely below
+`ln(3)≈1.0986`, the loss of a uniform random guess — meaning neither model
+learned meaningfully discriminative regime signal in this run (15 epochs,
+lr=0.01, 4 unnormalized hand-picked features, single split). This is **not**
+evidence the topological architecture doesn't work; it's evidence this
+particular quick first run under-trained both trainable models equally.
+The scientific question this project exists to answer (does dynamic
+topology add value over a flat baseline?) remains open — both models
+failed to learn enough to be distinguishable from each other here.
+Per the project's own rule ("never manufacture positive results"), this is
+reported as-is rather than re-run with different assumptions until a
+positive-looking number appears. Concrete next steps identified: feature
+normalization, more epochs/a longer schedule, and only then a real
+architecture comparison.
 
 ## Major finding this milestone: a real gradient-tracking bug, found and fixed
 
@@ -362,20 +387,46 @@ Nothing beyond that scope until V0.1 is scientifically validated.
     `evaluation` per the crate's Milestone-1 description; adding them to
     `training-engine` would be scope creep this crate doesn't need.
 
+### Milestone 9 additions
+
+- **`evaluation` implemented** (project spec §28):
+  - `NaivePersistenceBaseline` (echoes the last observed class),
+    `MajorityClassBaseline` (fit once on train labels), and
+    `LogisticRegressionBaseline` (mean-pool → linear → softmax, same
+    input/output shape as `neuro_model::RegimeHead` but no graph/topology —
+    the direct "does the graph earn its complexity" comparison point).
+    Gradient boosting, MLP, LSTM/GRU, Transformer, static/graph-Transformer
+    baselines deliberately deferred (§2: no point comparing against a GBM
+    before the two cheapest baselines have even been checked).
+  - `classification_report`: accuracy + per-class precision/recall/F1.
+    AUC, directional accuracy, regression error deferred — no
+    binary-direction or regression task exists yet (§26/§27).
+  - `examples/first_experiment.rs`: the project's first genuine experiment
+    runner — synthetic data → point-in-time-safe features → walk-forward
+    split → train `neuro-model` and the logistic baseline → evaluate all
+    four models on the held-out test window → write `config.json`/
+    `metrics.json`/`RESEARCH_REPORT.md` to `experiments/exp-0001.../`.
+    Run via `cargo run --release --example first_experiment -p evaluation`.
+- **First experiment run and reported** — see the section above. Negative/
+  inconclusive result, reported honestly rather than tuned until positive.
+
 ## Verification (cumulative, latest milestone)
 
 ```
 cargo build --workspace     → success, 18 crates compiled
-cargo test --workspace      → 134 passed, 0 failed, 1 ignored (documented)
+cargo test --workspace      → 144 passed, 0 failed, 1 ignored (documented)
                                (18 financial-types, 15 data-engine,
                                 33 feature-engine, 13 financial-graph,
                                 2 tensor-engine, 22 topology-engine,
-                                9 neuro-model, 21 training-engine, 1 cli)
-cargo clippy --workspace --all-targets → no issues found
+                                9 neuro-model, 21 training-engine,
+                                10 evaluation, 1 cli)
+cargo clippy --workspace --all-targets → no issues found (incl. examples)
 cargo fmt --all -- --check  → clean
 cargo run -p cli -- --config configs/default.toml
   → Loaded config from configs/default.toml: 100 assets across 10 sectors,
     sequence_length=30, topology_top_k=8
+cargo run --release --example first_experiment -p evaluation
+  → see experiments/exp-0001-first-regime-classification/ for full output
 ```
 
 ## Known issues / risks
@@ -397,16 +448,19 @@ cargo run -p cli -- --config configs/default.toml
 
 ## Next milestone
 
-**Milestone 9: `evaluation`** (project spec §28, §32) — baseline models
-(naive persistence, logistic regression, gradient boosting, MLP — enough to
-give `neuro-model` a real reference point) and metrics (accuracy, F1, AUC,
-directional accuracy). This is also the natural point to run the first real
-experiment: train `neuro-model` on a `WalkForwardValidator` split of the
-synthetic data, compare its regime-classification accuracy against the
-baselines, and write up the first `experiments/<id>/` result per §32 — the
-project's first actual scientific output, however preliminary.
+**Milestone 10: fix `exp-0001`'s under-training, then re-run** — this is
+not a new crate, it's finishing what Milestone 9 started: normalize
+features (z-score per feature across the train window) before feeding
+either trainable model, increase epochs and/or learning rate until train
+loss actually moves well below `ln(3)`, and only then re-run the
+neuro-model-vs-baselines comparison as `exp-0002`. Only after a *trained*
+comparison (not an under-trained one) is it meaningful to ask §54's
+question 1 ("does the graph improve prediction?"). Feature normalization
+belongs in `feature-engine` (a `z_score`/standardize function, point-in-time
+-safe — fit only on the train window, never on validation/test); everything
+else is a change to `examples/first_experiment.rs`.
 
 Still open: the Milestone 6 Burn RNG-determinism caveat
-(`RAYON_NUM_THREADS=1` needed for exact weight-init reproducibility) —
-noted again here since Milestone 8 is where reproducible experiments start
-actually mattering; not yet resolved, still just documented.
+(`RAYON_NUM_THREADS=1` needed for exact weight-init reproducibility) — not
+yet resolved, still just documented; matters more now that real experiment
+comparisons are underway.

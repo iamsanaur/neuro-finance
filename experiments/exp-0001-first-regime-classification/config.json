@@ -1,0 +1,33 @@
+{
+  "experiment_id": "exp-0001-first-regime-classification",
+  "features": [
+    "last_return",
+    "rolling_volatility_20",
+    "momentum_20",
+    "sma_deviation_20"
+  ],
+  "market": {
+    "num_assets": 30,
+    "num_days": 900,
+    "seed": 42
+  },
+  "model": {
+    "embed_dim": 16,
+    "feature_dim": 4,
+    "top_k": 5,
+    "topology_proj_dim": 8
+  },
+  "training": {
+    "batch_size": 8,
+    "epochs": 15,
+    "learning_rate": 0.01,
+    "optimizer": "Adam"
+  },
+  "walk_forward": {
+    "embargo_days": 5,
+    "mode": "Expanding",
+    "test_days": 100,
+    "train_days": 500,
+    "validation_days": 100
+  }
+}

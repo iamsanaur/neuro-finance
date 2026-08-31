@@ -1,0 +1,10 @@
+{
+  "accuracy": {
+    "logistic_regression": 0.0,
+    "majority_class": 0.0,
+    "naive_persistence": 0.98,
+    "neuro_model": 0.0
+  },
+  "test_examples": 100,
+  "train_examples": 475
+}

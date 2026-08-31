@@ -1999,6 +1999,18 @@ checksum = "d817e038c30374a4bcb22f94d0a8a0e216958d4c3dcde369b1439fec4bdda6e6"
 [[package]]
 name = "evaluation"
 version = "0.1.0"
+dependencies = [
+ "chrono",
+ "data-engine",
+ "feature-engine",
+ "financial-types",
+ "neuro-model",
+ "serde",
+ "serde_json",
+ "tensor-engine",
+ "thiserror 2.0.20",
+ "training-engine",
+]
 
 [[package]]
 name = "event-listener"

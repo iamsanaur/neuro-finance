@@ -8,3 +8,15 @@ publish.workspace = true
 description = "Metrics (accuracy/F1/AUC/directional accuracy/regression error), baseline models, ablation harness, research report generation."
 
 [dependencies]
+financial-types = { workspace = true }
+neuro-model = { workspace = true }
+tensor-engine = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+data-engine = { workspace = true }
+feature-engine = { workspace = true }
+training-engine = { workspace = true }
+chrono = { workspace = true }
