@@ -8,3 +8,6 @@ publish.workspace = true
 description = "Strongly-typed, timezone-aware financial data structures (bars, fundamentals, macro, news, point-in-time envelopes)."
 
 [dependencies]
+serde = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }

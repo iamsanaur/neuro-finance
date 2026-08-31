@@ -1,10 +1,10 @@
 # Project Status
 
-Last updated: 2026-08-31 (Milestone 1)
+Last updated: 2026-08-31 (Milestone 2)
 
 ## Current milestone
 
-**Milestone 1: Environment Inspection & Workspace Scaffold — DONE**
+**Milestone 2: `financial-types` — strongly typed, point-in-time data structures — DONE**
 
 ## Scope reminder
 
@@ -50,13 +50,42 @@ Nothing beyond that scope until V0.1 is scientifically validated.
   it drives.
 - Root docs: `README.md`, `LICENSE` (all-rights-reserved placeholder — no
   license decision has been made), `.gitignore`.
-- Repo is **not yet a git repository** — nothing has been committed.
+- Repo pushed to **github.com/iamsanaur/neuro-finance** (private), `main`
+  branch. Pushes go over HTTPS via `gh`'s git credential helper (the local
+  SSH key isn't registered with GitHub yet — see Known issues).
 
-## Verification (this milestone)
+### Milestone 2 additions
+
+- **`financial-types` implemented** (project spec §8–§9):
+  - `Timestamp = DateTime<Utc>` — every timestamp in the system is
+    timezone-aware by construction, never a raw string.
+  - Newtype identifiers (`Symbol`, `EntityId`, `MacroSeriesId`, `MetricId`,
+    `Source`, `EventType`) so e.g. a `Symbol` can't be passed where a
+    `MacroSeriesId` is expected — a compile error instead of a silent bug.
+  - `MarketBar`, `FundamentalObservation`, `MacroObservation`, `NewsEvent` —
+    struct shapes match the spec exactly, each with a `validate()` that
+    catches malformed data (OHLC inconsistency, non-finite values,
+    publication-before-observation, out-of-range sentiment) rather than
+    letting it flow downstream silently.
+  - **`PointInTime` trait + `PointInTimeDataset<T>`** — the actual
+    point-in-time access contract (§9). `PointInTimeDataset` exposes exactly
+    one read path, `as_of(query_time)`, which is a binary search (records
+    kept sorted by `availability_time`) and structurally cannot return a
+    record whose `availability_time` exceeds the query time. There is no
+    other way to read the underlying data through this type.
+  - `MarketBar`'s `availability_time` is documented as equal to its
+    `timestamp` in V0.1 (no publication lag modeled for market data) — an
+    explicit, flagged assumption, not a silent one; revisit for intraday/real
+    data (V0.2+).
+  - Leakage test included at this layer already (§30):
+    `as_of_excludes_records_available_after_query_time` — a record observed
+    long ago but published late must not appear in an early `as_of` query.
+
+## Verification (cumulative, latest milestone)
 
 ```
 cargo build --workspace     → success, 18 crates compiled
-cargo test --workspace      → 1 passed, 0 failed (cli::config::tests::loads_default_config)
+cargo test --workspace      → 19 passed, 0 failed (18 in financial-types + 1 in cli)
 cargo clippy --workspace --all-targets → no issues found
 cargo fmt --all -- --check  → clean
 cargo run -p cli -- --config configs/default.toml
@@ -73,16 +102,21 @@ cargo run -p cli -- --config configs/default.toml
 - Burn is not yet an actual dependency anywhere — the backend decision is
   documented but unverified against real tensor ops. First real check of
   that decision happens when `tensor-engine` is implemented and benchmarked.
-- No git repository yet. Nothing is version-controlled until `git init` +
-  first commit, which should happen before further milestones accumulate
-  more untracked work.
+- Local SSH key (`~/.ssh/id_ed25519`) is not registered with GitHub; pushes
+  use `gh`'s HTTPS credential helper instead. Fine for now, but if the user
+  wants SSH-based git going forward, the public key needs adding to their
+  GitHub account.
+- `MarketBar.availability_time() == timestamp` is a V0.1 simplification
+  (see above) — must be revisited before this system is trusted with
+  intraday or real vendor-latency data.
 
 ## Next milestone
 
-**Milestone 2: `financial-types` — strongly typed, timezone-aware data
-structures** (project spec §8–§9): `MarketBar`, `FundamentalObservation`,
-`MacroObservation`, `NewsEvent`, and the point-in-time envelope types
-(observation timestamp vs. availability timestamp) that the rest of the
-system builds on, plus unit tests establishing the point-in-time access
-contract from the start. `git init` + first commit happens as part of this
-milestone, before new files pile up further.
+**Milestone 3: synthetic market generator** (`data-engine`, project spec
+§10): 100 assets, 10 sectors, 3–5 market regimes, correlated assets with
+time-varying correlation, volatility clustering, macro factors, sector
+shocks, cross-sector contagion — with a *known* hidden topology (e.g. tech
+assets tightly connected in one regime, financials in another) so later
+milestones can test whether the topology-learning components actually
+recover it. This is the first genuinely research-bearing component, not just
+scaffolding.
