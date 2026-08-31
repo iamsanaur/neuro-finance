@@ -8,3 +8,13 @@ publish.workspace = true
 description = "NeuroTopologicalFinancialModel: feature encoder, topology, message passing, global attention, fusion, temporal encoder, prediction heads."
 
 [dependencies]
+financial-types = { workspace = true }
+financial-graph = { workspace = true }
+topology-engine = { workspace = true }
+tensor-engine = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+data-engine = { workspace = true }
+feature-engine = { workspace = true }
+chrono = { workspace = true }

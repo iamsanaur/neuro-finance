@@ -1,10 +1,10 @@
 # Project Status
 
-Last updated: 2026-08-31 (Milestone 6)
+Last updated: 2026-08-31 (Milestone 7)
 
 ## Current milestone
 
-**Milestone 6: `topology-engine` — dynamic topology learner, first real Burn usage — DONE**
+**Milestone 7: `neuro-model` — feature encoder, message passing, regime head — DONE**
 
 ## Decision: real data source
 
@@ -259,15 +259,51 @@ Nothing beyond that scope until V0.1 is scientifically validated.
     traversal; full community detection deliberately deferred to the
     topology-research milestone (§34) where it's actually needed.
 
+### Milestone 7 additions
+
+- **`neuro-model` implemented**, scoped intentionally to the first slice of
+  §19–§25, not the full architecture:
+  - `FeatureEncoder`: one linear projection + ReLU, raw causal features
+    (`[N, feature_dim]`) → node embeddings (`[N, embed_dim]`).
+  - `GraphMessagePassing` (§19, "basic graph aggregation" variant only —
+    graph attention and dynamic sparse attention explicitly deferred to a
+    later milestone, §28's baseline-first discipline): `m_i = sum_{j in
+    N(i)} alpha_ij * W_v * h_j`, `h'_i = h_i + MLP(m_i)`, `alpha_ij` = edge
+    weight normalized by degree. Implemented via a dense `[N, N]` matmul —
+    documented explicitly as a deliberate, scale-appropriate choice (N=100)
+    and *not* a violation of §13's sparse-storage rule, which governs
+    `FinancialGraph`'s storage, not a message-passing kernel's math.
+  - `RegimeHead`: mean-pools node embeddings, linear + softmax → 3-class
+    probabilities `[RiskOn, Neutral, RiskOff]` (§25's first model task),
+    matching `data-engine::synthetic::MarketRegime`'s class order exactly.
+  - `NeuroTopologicalFinancialModel`: wires encoder → `topology-engine`'s
+    scorer/top-k → message passing → regime head. **Explicitly not
+    implemented**: global attention/fusion (§20), temporal encoding (§21,
+    so this model is single-day/cross-sectional only, no sequence notion
+    yet), hierarchical graph (§22), financial memory (§23).
+  - **Documented, not hidden, architectural limitation**: gradients don't
+    flow through `top_k_topology`'s hard selection, so backpropagating a
+    prediction loss through this model trains everything *except*
+    `TopologyScorer`'s `W_q`/`W_k`. Those train separately, directly on the
+    differentiable score matrix, via `topology-engine`'s `l_sparse`/
+    `l_stability` — a standard way to handle hard top-k in graph learning,
+    not a placeholder for something more sophisticated pending later.
+  - **Integration test** (`tests/synthetic_pipeline.rs`): the first version
+    of §48's synthetic end-to-end test — synthetic bars → point-in-time-safe
+    features (via `PointInTimeDataset::as_of`, `feature-engine`) → model →
+    regime probabilities, on real (not fixture) generated data, plus a
+    point-in-time-safety sanity check (different `as_of` days produce
+    different features from the same dataset).
+
 ## Verification (cumulative, latest milestone)
 
 ```
-cargo build --workspace     → success, 18 crates compiled (34 total incl. deps)
-cargo test --workspace      → 104 passed, 0 failed, 1 ignored (documented)
+cargo build --workspace     → success, 18 crates compiled
+cargo test --workspace      → 113 passed, 0 failed, 1 ignored (documented)
                                (18 financial-types, 15 data-engine,
                                 33 feature-engine, 13 financial-graph,
                                 2 tensor-engine, 22 topology-engine,
-                                1 cli)
+                                9 neuro-model, 1 cli)
 cargo clippy --workspace --all-targets → no issues found
 cargo fmt --all -- --check  → clean
 cargo run -p cli -- --config configs/default.toml
@@ -294,13 +330,13 @@ cargo run -p cli -- --config configs/default.toml
 
 ## Next milestone
 
-**Milestone 7: `neuro-model`** (project spec §19–§24) — starts assembling
-the actual `NeuroTopologicalFinancialModel`: a feature encoder (turning
-`feature-engine` output into node embeddings `topology-engine` can score),
-sparse graph message passing over `topology-engine`'s learned topology, and
-the first prediction head (regime classification — `RiskOn`/`Neutral`/
-`RiskOff`, matching `data-engine`'s synthetic regime labels exactly, per
-§25). Global attention/fusion (§20) and the temporal encoder (§21) are
-larger pieces of this same milestone's spec range; will scope precisely
-once the feature encoder and message passing are working, per the
-"don't build hundreds of files without validating" workflow rule (§56).
+**Milestone 8: `training-engine`** (project spec §29, §31) — the first
+actual training loop: mini-batching, an optimizer (Burn's `optim` module),
+a walk-forward validator (§29 — expanding/rolling window, purging, embargo),
+checkpointing, early stopping. This is where the model actually gets fit to
+data for the first time, and where the Milestone 6 RNG-determinism caveat
+needs a real decision (accept + pin `RAYON_NUM_THREADS=1`, or investigate
+further). Also the natural point to add the baseline models (§28: naive,
+logistic regression, GBM, MLP) `neuro-model` should be compared against —
+without them, a regime-classification accuracy number has no reference
+point to be judged against.

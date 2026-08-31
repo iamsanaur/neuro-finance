@@ -1002,6 +1002,16 @@ dependencies = [
 [[package]]
 name = "neuro-model"
 version = "0.1.0"
+dependencies = [
+ "chrono",
+ "data-engine",
+ "feature-engine",
+ "financial-graph",
+ "financial-types",
+ "tensor-engine",
+ "thiserror",
+ "topology-engine",
+]
 
 [[package]]
 name = "nom"
