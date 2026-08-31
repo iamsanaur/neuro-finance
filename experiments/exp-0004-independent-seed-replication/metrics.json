@@ -1,0 +1,311 @@
+{
+  "all_results": [
+    {
+      "accuracy": {
+        "logistic_regression": 0.34,
+        "majority_class": 0.0,
+        "mlp_baseline": 0.28,
+        "naive_persistence": 0.98,
+        "neuro_model": 0.3
+      },
+      "seed": 42,
+      "split_index": 0,
+      "test_examples": 100,
+      "train_examples": 475
+    },
+    {
+      "accuracy": {
+        "logistic_regression": 0.32,
+        "majority_class": 0.0,
+        "mlp_baseline": 0.36,
+        "naive_persistence": 0.95,
+        "neuro_model": 0.29
+      },
+      "seed": 42,
+      "split_index": 1,
+      "test_examples": 100,
+      "train_examples": 575
+    },
+    {
+      "accuracy": {
+        "logistic_regression": 0.46,
+        "majority_class": 0.49,
+        "mlp_baseline": 0.48,
+        "naive_persistence": 0.98,
+        "neuro_model": 0.48
+      },
+      "seed": 42,
+      "split_index": 2,
+      "test_examples": 100,
+      "train_examples": 675
+    },
+    {
+      "accuracy": {
+        "logistic_regression": 0.39,
+        "majority_class": 0.04,
+        "mlp_baseline": 0.46,
+        "naive_persistence": 0.94,
+        "neuro_model": 0.35
+      },
+      "seed": 42,
+      "split_index": 3,
+      "test_examples": 100,
+      "train_examples": 775
+    },
+    {
+      "accuracy": {
+        "logistic_regression": 0.19,
+        "majority_class": 0.01,
+        "mlp_baseline": 0.17,
+        "naive_persistence": 0.98,
+        "neuro_model": 0.22
+      },
+      "seed": 123,
+      "split_index": 0,
+      "test_examples": 100,
+      "train_examples": 475
+    },
+    {
+      "accuracy": {
+        "logistic_regression": 0.35,
+        "majority_class": 0.0,
+        "mlp_baseline": 0.37,
+        "naive_persistence": 0.99,
+        "neuro_model": 0.4
+      },
+      "seed": 123,
+      "split_index": 1,
+      "test_examples": 100,
+      "train_examples": 575
+    },
+    {
+      "accuracy": {
+        "logistic_regression": 0.33,
+        "majority_class": 0.38,
+        "mlp_baseline": 0.4,
+        "naive_persistence": 0.97,
+        "neuro_model": 0.38
+      },
+      "seed": 123,
+      "split_index": 2,
+      "test_examples": 100,
+      "train_examples": 675
+    },
+    {
+      "accuracy": {
+        "logistic_regression": 0.31,
+        "majority_class": 0.44,
+        "mlp_baseline": 0.38,
+        "naive_persistence": 0.97,
+        "neuro_model": 0.4
+      },
+      "seed": 123,
+      "split_index": 3,
+      "test_examples": 100,
+      "train_examples": 775
+    },
+    {
+      "accuracy": {
+        "logistic_regression": 0.68,
+        "majority_class": 0.68,
+        "mlp_baseline": 0.68,
+        "naive_persistence": 0.99,
+        "neuro_model": 0.68
+      },
+      "seed": 7,
+      "split_index": 0,
+      "test_examples": 100,
+      "train_examples": 475
+    },
+    {
+      "accuracy": {
+        "logistic_regression": 0.37,
+        "majority_class": 0.0,
+        "mlp_baseline": 0.05,
+        "naive_persistence": 0.98,
+        "neuro_model": 0.07
+      },
+      "seed": 7,
+      "split_index": 1,
+      "test_examples": 100,
+      "train_examples": 575
+    },
+    {
+      "accuracy": {
+        "logistic_regression": 0.62,
+        "majority_class": 0.0,
+        "mlp_baseline": 0.66,
+        "naive_persistence": 0.98,
+        "neuro_model": 0.54
+      },
+      "seed": 7,
+      "split_index": 2,
+      "test_examples": 100,
+      "train_examples": 675
+    },
+    {
+      "accuracy": {
+        "logistic_regression": 0.26,
+        "majority_class": 0.0,
+        "mlp_baseline": 0.26,
+        "naive_persistence": 0.97,
+        "neuro_model": 0.26
+      },
+      "seed": 7,
+      "split_index": 3,
+      "test_examples": 100,
+      "train_examples": 775
+    },
+    {
+      "accuracy": {
+        "logistic_regression": 0.61,
+        "majority_class": 0.36,
+        "mlp_baseline": 0.48,
+        "naive_persistence": 0.98,
+        "neuro_model": 0.61
+      },
+      "seed": 2024,
+      "split_index": 0,
+      "test_examples": 100,
+      "train_examples": 475
+    },
+    {
+      "accuracy": {
+        "logistic_regression": 0.28,
+        "majority_class": 0.33,
+        "mlp_baseline": 0.29,
+        "naive_persistence": 0.98,
+        "neuro_model": 0.48
+      },
+      "seed": 2024,
+      "split_index": 1,
+      "test_examples": 100,
+      "train_examples": 575
+    },
+    {
+      "accuracy": {
+        "logistic_regression": 0.04,
+        "majority_class": 0.45,
+        "mlp_baseline": 0.13,
+        "naive_persistence": 0.96,
+        "neuro_model": 0.18
+      },
+      "seed": 2024,
+      "split_index": 2,
+      "test_examples": 100,
+      "train_examples": 675
+    },
+    {
+      "accuracy": {
+        "logistic_regression": 0.5,
+        "majority_class": 0.95,
+        "mlp_baseline": 0.71,
+        "naive_persistence": 0.98,
+        "neuro_model": 0.72
+      },
+      "seed": 2024,
+      "split_index": 3,
+      "test_examples": 100,
+      "train_examples": 775
+    },
+    {
+      "accuracy": {
+        "logistic_regression": 0.49,
+        "majority_class": 0.18,
+        "mlp_baseline": 0.6,
+        "naive_persistence": 0.98,
+        "neuro_model": 0.55
+      },
+      "seed": 999,
+      "split_index": 0,
+      "test_examples": 100,
+      "train_examples": 475
+    },
+    {
+      "accuracy": {
+        "logistic_regression": 0.64,
+        "majority_class": 0.37,
+        "mlp_baseline": 0.52,
+        "naive_persistence": 0.97,
+        "neuro_model": 0.56
+      },
+      "seed": 999,
+      "split_index": 1,
+      "test_examples": 100,
+      "train_examples": 575
+    },
+    {
+      "accuracy": {
+        "logistic_regression": 0.7,
+        "majority_class": 0.13,
+        "mlp_baseline": 0.65,
+        "naive_persistence": 0.96,
+        "neuro_model": 0.67
+      },
+      "seed": 999,
+      "split_index": 2,
+      "test_examples": 100,
+      "train_examples": 675
+    },
+    {
+      "accuracy": {
+        "logistic_regression": 0.28,
+        "majority_class": 0.64,
+        "mlp_baseline": 0.37,
+        "naive_persistence": 0.95,
+        "neuro_model": 0.5
+      },
+      "seed": 999,
+      "split_index": 3,
+      "test_examples": 100,
+      "train_examples": 775
+    }
+  ],
+  "mean_accuracy_overall": {
+    "logistic_regression": 0.40800000000000003,
+    "majority_class": 0.27249999999999996,
+    "mlp_baseline": 0.4149999999999999,
+    "naive_persistence": 0.9720000000000001,
+    "neuro_model": 0.43199999999999994
+  },
+  "mean_accuracy_per_seed": {
+    "123": {
+      "logistic_regression": 0.29500000000000004,
+      "majority_class": 0.20750000000000002,
+      "mlp_baseline": 0.33,
+      "naive_persistence": 0.9775,
+      "neuro_model": 0.35
+    },
+    "2024": {
+      "logistic_regression": 0.35750000000000004,
+      "majority_class": 0.5225,
+      "mlp_baseline": 0.40249999999999997,
+      "naive_persistence": 0.975,
+      "neuro_model": 0.49749999999999994
+    },
+    "42": {
+      "logistic_regression": 0.37750000000000006,
+      "majority_class": 0.1325,
+      "mlp_baseline": 0.395,
+      "naive_persistence": 0.9625,
+      "neuro_model": 0.355
+    },
+    "7": {
+      "logistic_regression": 0.4825,
+      "majority_class": 0.17,
+      "mlp_baseline": 0.41250000000000003,
+      "naive_persistence": 0.98,
+      "neuro_model": 0.3875
+    },
+    "999": {
+      "logistic_regression": 0.5275,
+      "majority_class": 0.33,
+      "mlp_baseline": 0.535,
+      "naive_persistence": 0.9650000000000001,
+      "neuro_model": 0.5700000000000001
+    }
+  },
+  "neuro_model_beat_both_flat_baselines_seed_count": 3,
+  "num_data_points_per_model": 20,
+  "total_seeds": 5
+}

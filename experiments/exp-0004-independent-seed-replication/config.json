@@ -1,0 +1,43 @@
+{
+  "based_on": "exp-0003-capacity-matched-multi-split",
+  "changes_from_exp_0003": [
+    "repeated the exp-0003 comparison across 5 independently-seeded synthetic markets",
+    "5 seeds x 4 splits each = 20 (seed, split) data points per model, instead of 4"
+  ],
+  "experiment_id": "exp-0004-independent-seed-replication",
+  "market": {
+    "num_assets": 30,
+    "num_days": 1100,
+    "seeds": [
+      42,
+      123,
+      7,
+      2024,
+      999
+    ]
+  },
+  "mlp_baseline": {
+    "hidden_dim": 116,
+    "param_count": 931
+  },
+  "model": {
+    "embed_dim": 16,
+    "feature_dim": 4,
+    "param_count": 931,
+    "top_k": 5,
+    "topology_proj_dim": 8
+  },
+  "training": {
+    "batch_size": 8,
+    "epochs": 60,
+    "learning_rate": 0.02,
+    "optimizer": "Adam"
+  },
+  "walk_forward": {
+    "embargo_days": 5,
+    "mode": "Expanding",
+    "test_days": 100,
+    "train_days": 500,
+    "validation_days": 100
+  }
+}

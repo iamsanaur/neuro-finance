@@ -1,12 +1,40 @@
 # Project Status
 
-Last updated: 2026-08-31 (Milestone 11)
+Last updated: 2026-08-31 (Milestone 12)
 
 ## Current milestone
 
-**Milestone 11: capacity-matched MLP baseline + multi-split evaluation (exp-0003) — DONE**
+**Milestone 12: independent-seed replication (exp-0004) — DONE**
 
-## exp-0003 result: with capacity controlled for, the graph model underperforms a plain MLP, across 4 splits
+## exp-0004 result: exp-0003's finding does NOT replicate — the honest answer is "inconclusive, high variance"
+
+Re-ran `exp-0003`'s exact comparison across **5 independently-seeded**
+synthetic markets (seeds 42, 123, 7, 2024, 999 — seed 42 is `exp-0003`'s
+original market), 4 splits each, 20 (seed, split) data points per model.
+
+**`exp-0003`'s conclusion — "neuro_model consistently underperforms a
+capacity-matched flat MLP" — did not hold up.** Across all 20 data points,
+`neuro_model` had the *highest* overall mean accuracy (0.432, vs.
+`mlp_baseline` 0.415 and `logistic_regression` 0.408), and beat both flat
+baselines on 3 of 5 seeds' means. Per-seed accuracy for `neuro_model`
+ranged 0.350–0.570 — high variance, and `exp-0003`'s own seed (42) turned
+out to be one of the two *less* favorable seeds for `neuro_model` in this
+sample, not a representative one.
+
+**The honest, corrected conclusion, and this project's actual V0.1-stage
+answer to "does dynamic topology improve prediction?" (§54 Q1): currently
+inconclusive, with high seed-to-seed variance, on same-day regime
+classification.** Neither "topology reliably hurts" (`exp-0003`'s claim)
+nor "topology reliably helps" is supported by the evidence gathered so
+far — 5 seeds and no formal significance test isn't enough to settle it
+either way. Full report, including the explicit correction of `exp-0003`
+and the methodological lesson ("don't trust a single-market-history
+result"): `experiments/exp-0004-independent-seed-replication/RESEARCH_REPORT.md`.
+
+`naive_persistence` remains dominant and stable across every seed
+(0.963–0.980) — that part of every prior finding is unchanged and robust.
+
+## Prior: exp-0003 (its specific "topology underperforms" claim corrected by exp-0004 above; kept for the record)
 
 Added `MlpBaseline` (one hidden layer, no graph, `hidden_dim=116` chosen so
 `param_count(4, 116, 3) == 931`, an exact match to `neuro_model`'s ~931
@@ -441,6 +469,15 @@ Nothing beyond that scope until V0.1 is scientifically validated.
     `evaluation` per the crate's Milestone-1 description; adding them to
     `training-engine` would be scope creep this crate doesn't need.
 
+### Milestone 12 additions
+
+- **`examples/fourth_experiment.rs`** (`exp-0004`): repeats `exp-0003`'s
+  exact comparison across 5 independent market seeds instead of 1,
+  reporting both an overall mean and a per-seed breakdown (including how
+  many seeds `neuro_model` beat both flat baselines on). No new library
+  code — this is a driver-script-only milestone, as anticipated.
+  Runtime: ~3 minutes in `--release` (60 model trainings total).
+
 ### Milestone 11 additions
 
 - **`evaluation::MlpBaseline`**: one hidden layer, no graph, exposes
@@ -504,9 +541,10 @@ cargo fmt --all -- --check  → clean
 cargo run -p cli -- --config configs/default.toml
   → Loaded config from configs/default.toml: 100 assets across 10 sectors,
     sequence_length=30, topology_top_k=8
-cargo run --release --example third_experiment -p evaluation
-  → see experiments/exp-0003-capacity-matched-multi-split/ for full output
-    (exp-0001, exp-0002 kept for the record; superseded by exp-0003)
+cargo run --release --example fourth_experiment -p evaluation
+  → see experiments/exp-0004-independent-seed-replication/ for full output
+    (exp-0001..exp-0003 kept for the record; exp-0003's specific claim is
+    corrected by exp-0004 — see above)
 ```
 
 ## Known issues / risks
@@ -528,20 +566,21 @@ cargo run --release --example third_experiment -p evaluation
 
 ## Next milestone
 
-**Milestone 12: independent-seed replication, then decide on V0.1's
-scientific conclusion.** `exp-0003`'s splits are 4 windows of *one*
-generated market history, not independent re-generations — the natural
-next check is re-running the same comparison across a handful of different
-`SyntheticMarketConfig` seeds, to see whether "MLP/logistic beat
-neuro_model" holds up as a seed-independent pattern or was itself an
-artifact of this one market path. If it holds across seeds, V0.1's honest
-conclusion (per §54) is that this project's own evidence argues against
-its central hypothesis on same-day classification with no temporal
-component — worth writing up as the actual V0.1 research report (§55) at
-that point, rather than continuing to add architecture before the
-existing evidence is taken seriously. A temporal component (§21) is the
-most plausible remaining lever (per `exp-0003`'s own discussion) if the
-project continues past that point.
+**Milestone 13: a temporal component (§21).** Every experiment so far
+(`exp-0001`–`exp-0004`) has been same-day/cross-sectional — the model has
+no memory of yesterday, which `exp-0004`'s report flags as a plausible
+reason no strong signal (in either direction) has shown up: a "dynamic"
+topology model with no temporal dimension can't actually exploit dynamics.
+`naive_persistence`'s dominance in every single experiment (0.94–0.99
+accuracy, seed after seed) is itself the strongest evidence in the
+project's data that *temporal* structure matters far more than any
+per-day cross-sectional signal found so far — which makes a causal
+temporal encoder (§21: 30-day sequences to start, per V0.1 scope) the
+best-supported next architectural step, not a speculative one. Before
+that: consider whether more seeds (10–20) and a formal paired statistical
+test are worth running first to firm up `exp-0004`'s "inconclusive"
+verdict, or whether that's better revisited once a temporal model exists
+and there's a materially different architecture to test.
 
 Still open: the Milestone 6 Burn RNG-determinism caveat
 (`RAYON_NUM_THREADS=1` needed for exact weight-init reproducibility) — not
