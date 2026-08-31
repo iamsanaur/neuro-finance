@@ -1,12 +1,38 @@
 # Project Status
 
-Last updated: 2026-08-31 (Milestone 9)
+Last updated: 2026-08-31 (Milestone 10)
 
 ## Current milestone
 
-**Milestone 9: `evaluation` + the project's first real experiment — DONE**
+**Milestone 10: fix exp-0001's under-training, re-run as exp-0002 — DONE**
 
-## First experiment result (exp-0001) — an honest negative/inconclusive finding
+## exp-0002 result: once both models actually learn, the graph model underperforms the flat baseline
+
+Added `feature_engine::Standardizer` (z-score, fit on train window only —
+point-in-time-safe by construction) and re-ran with 60 epochs at lr=0.02
+(up from 15 epochs at lr=0.01). This time training loss actually dropped
+(neuro-model: 1.24 → 0.62; logistic-regression: 1.21 → 0.73 — both well
+below the `ln(3)≈1.10` uniform-guess floor `exp-0001` was stuck at),
+confirming real learning happened.
+
+**Test-window accuracy: `naive_persistence` 0.98, `logistic_regression`
+0.34, `neuro_model` 0.30, `majority_class` 0.00.** The graph/topology
+model reaches a *lower* training loss than the flat baseline (0.62 vs.
+0.73 — it fits training data better, as expected from its larger
+capacity) but *lower* test accuracy (0.30 vs. 0.34) — the textbook
+signature of overfitting relative to the baseline, not of the topology
+mechanism adding useful signal. Full writeup, including what this result
+does and doesn't establish (single split, no capacity-matched baseline
+yet, naive-persistence's dominance says as much about the task as about
+either model): `experiments/exp-0002-normalized-longer-training/RESEARCH_REPORT.md`.
+
+This is the first experiment in this project that actually bears on its
+central question — and the honest answer so far, on this one split, is
+"no measurable benefit from the topology, and a sign of overfitting."
+Reported as-is, per the project's own rule against manufacturing positive
+results.
+
+## Prior: exp-0001 (superseded by exp-0002, kept for the record)
 
 Ran `neuro-model` vs. a flat logistic-regression baseline vs.
 majority-class vs. naive-persistence on one walk-forward split of synthetic
@@ -387,6 +413,17 @@ Nothing beyond that scope until V0.1 is scientifically validated.
     `evaluation` per the crate's Milestone-1 description; adding them to
     `training-engine` would be scope creep this crate doesn't need.
 
+### Milestone 10 additions
+
+- **`feature_engine::Standardizer`**: z-score standardization, `fit` on
+  train data only, `transform`/`transform_all` applied unchanged to
+  held-out data — the point-in-time-safe pattern (never fit on
+  validation/test). Constant-feature edge case (`std == 0`) maps to `0.0`
+  rather than dividing by zero.
+- **`examples/second_experiment.rs`** (`exp-0002`): same market/seed/split
+  as `exp-0001`, with standardized features and a longer training
+  schedule. See the result above.
+
 ### Milestone 9 additions
 
 - **`evaluation` implemented** (project spec §28):
@@ -414,9 +451,9 @@ Nothing beyond that scope until V0.1 is scientifically validated.
 
 ```
 cargo build --workspace     → success, 18 crates compiled
-cargo test --workspace      → 144 passed, 0 failed, 1 ignored (documented)
+cargo test --workspace      → 146 passed, 0 failed, 1 ignored (documented)
                                (18 financial-types, 15 data-engine,
-                                33 feature-engine, 13 financial-graph,
+                                35 feature-engine, 13 financial-graph,
                                 2 tensor-engine, 22 topology-engine,
                                 9 neuro-model, 21 training-engine,
                                 10 evaluation, 1 cli)
@@ -425,8 +462,9 @@ cargo fmt --all -- --check  → clean
 cargo run -p cli -- --config configs/default.toml
   → Loaded config from configs/default.toml: 100 assets across 10 sectors,
     sequence_length=30, topology_top_k=8
-cargo run --release --example first_experiment -p evaluation
-  → see experiments/exp-0001-first-regime-classification/ for full output
+cargo run --release --example second_experiment -p evaluation
+  → see experiments/exp-0002-normalized-longer-training/ for full output
+    (exp-0001 kept for the record; superseded by exp-0002's result)
 ```
 
 ## Known issues / risks
@@ -448,17 +486,17 @@ cargo run --release --example first_experiment -p evaluation
 
 ## Next milestone
 
-**Milestone 10: fix `exp-0001`'s under-training, then re-run** — this is
-not a new crate, it's finishing what Milestone 9 started: normalize
-features (z-score per feature across the train window) before feeding
-either trainable model, increase epochs and/or learning rate until train
-loss actually moves well below `ln(3)`, and only then re-run the
-neuro-model-vs-baselines comparison as `exp-0002`. Only after a *trained*
-comparison (not an under-trained one) is it meaningful to ask §54's
-question 1 ("does the graph improve prediction?"). Feature normalization
-belongs in `feature-engine` (a `z_score`/standardize function, point-in-time
--safe — fit only on the train window, never on validation/test); everything
-else is a change to `examples/first_experiment.rs`.
+**Milestone 11: a capacity-matched MLP baseline, then multiple splits/seeds**
+— `exp-0002`'s own conclusion identifies the next concrete step: build an
+MLP baseline with a parameter budget comparable to `neuro_model` (same
+rough capacity, no graph/topology) to separate "extra capacity overfits"
+from "the topology mechanism specifically overfits." Belongs in
+`evaluation` alongside the existing baselines. After that: re-run across
+several walk-forward splits and seeds (not just the first split) before
+treating any accuracy gap as more than anecdotal — `WalkForwardValidator`
+already supports this (`.splits()` returns every split, `exp-0002` only
+used `splits[0]`), so this is mostly a driver-script change, not new
+infrastructure.
 
 Still open: the Milestone 6 Burn RNG-determinism caveat
 (`RAYON_NUM_THREADS=1` needed for exact weight-init reproducibility) — not

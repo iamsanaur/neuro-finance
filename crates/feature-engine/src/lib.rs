@@ -2,7 +2,9 @@
 //!
 //! Causal, point-in-time-safe feature computation (project spec §11):
 //! log/rolling returns, volatility, momentum, moving averages, drawdown,
-//! rolling correlation, beta, volume change, liquidity.
+//! rolling correlation, beta, volume change, liquidity, and z-score
+//! standardization ([`Standardizer`] — fit on train data only, applied
+//! unchanged to held-out data).
 //!
 //! Every rolling operation explicitly declares its window, its alignment
 //! (always trailing — see [`rolling::rolling_apply`]), and its minimum
@@ -24,6 +26,7 @@ pub mod moving_average;
 pub mod returns;
 pub mod rolling;
 pub mod series;
+pub mod standardize;
 pub mod volatility;
 pub mod volume;
 
@@ -34,5 +37,6 @@ pub use moving_average::moving_average;
 pub use returns::{log_returns, momentum, rolling_return};
 pub use rolling::rolling_apply;
 pub use series::{bars_for_symbol, close_series, volume_series};
+pub use standardize::Standardizer;
 pub use volatility::rolling_volatility;
 pub use volume::{dollar_volume, volume_change};

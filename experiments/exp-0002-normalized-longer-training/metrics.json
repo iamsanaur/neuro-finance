@@ -1,0 +1,15 @@
+{
+  "accuracy": {
+    "logistic_regression": 0.34,
+    "majority_class": 0.0,
+    "naive_persistence": 0.98,
+    "neuro_model": 0.3
+  },
+  "final_train_loss": {
+    "logistic_regression": 0.7341294726405371,
+    "neuro_model": 0.6187360660776908,
+    "uniform_guess_reference": 1.0986122886681098
+  },
+  "test_examples": 100,
+  "train_examples": 475
+}
